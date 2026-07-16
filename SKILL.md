@@ -16,6 +16,18 @@ Guidance for writing research code that is **reproducible, readable, and fast
 enough** — consistent across everyone in the lab. The goal is code a labmate
 (or you, in six months) can run and trust without a phone call.
 
+**Two goals, not one:**
+
+1. **Write code that follows these practices** by default.
+2. **Teach the person you're helping *why*.** Most people using this skill are
+   students learning to write research code. Don't just silently apply a
+   principle — briefly explain the advantage the first time it comes up
+   ("I'm caching this to disk so re-running the notebook takes seconds instead
+   of re-doing the 20-minute feature extraction"). The aim is that they
+   internalize the reasoning and choose these practices on their own, not that
+   they follow a rule they don't understand. Keep explanations short and tied
+   to the concrete code at hand; don't lecture.
+
 Each principle below is stated language-agnostically. Concrete *before → after*
 examples live in the per-language files; when you know the language, read it:
 
@@ -111,3 +123,5 @@ When asked to write or refactor lab code:
 2. Read the matching `languages/<lang>.md` for idioms and the exact tooling.
 3. Produce code that already follows these defaults — don't write the "before"
    version and wait to be corrected.
+4. Explain the *why* as you go, so the person learns the advantage rather than
+   just receiving a rule (see "Two goals" above).
