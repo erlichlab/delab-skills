@@ -1,0 +1,113 @@
+---
+name: delab-coding-practices
+description: >-
+  Coding standards for the Erlich lab (delab). Load this whenever you are
+  writing, reviewing, or refactoring research code in Python, Julia, MATLAB,
+  or R — behavior/rig control, ephys and imaging analysis, modeling, or
+  statistics. Enforces reproducible environments, functional and testable
+  code, cached computation, vectorization, small functions, and keeping
+  secrets and hard-coded paths out of the repository. When the user is working
+  in a specific language, also read the matching file in `languages/`.
+---
+
+# delab coding practices
+
+Guidance for writing research code that is **reproducible, readable, and fast
+enough** — consistent across everyone in the lab. The goal is code a labmate
+(or you, in six months) can run and trust without a phone call.
+
+Each principle below is stated language-agnostically. Concrete *before → after*
+examples live in the per-language files; when you know the language, read it:
+
+- Python  → `languages/python.md`
+- Julia   → `languages/julia.md`
+- MATLAB  → `languages/matlab.md`
+- R       → `languages/r.md`
+
+Apply these by default. They are strong defaults, not laws — if a principle
+genuinely doesn't fit, say why in a comment rather than silently ignoring it.
+
+---
+
+## 1. Package & environment management
+
+Every project declares its dependencies in a manifest that lives in the repo,
+and pins them so an install is reproducible on another machine. Never rely on
+"whatever is installed globally."
+
+- One project = one isolated environment (not your base/system install).
+- Commit the manifest **and** the lockfile.
+- A fresh clone + one install command must reproduce a working environment.
+- Per language: Python → `uv` + `pyproject.toml`; Julia → `Project.toml` +
+  `Manifest.toml`; R → `renv`; MATLAB → a `.prj` project + a documented
+  toolbox list.
+
+## 2. Functional code
+
+Prefer **pure functions**: output depends only on inputs, no hidden reads or
+writes of global state, no surprise side effects.
+
+- Pass data in as arguments and return results; don't reach out to globals.
+- Separate *computation* (pure, testable) from *I/O and plotting* (the edges).
+- A function that both loads a file, computes, mutates a global, and plots is
+  four functions wearing a trench coat.
+
+## 3. Cache expensive local results
+
+If a computation is slow and its inputs haven't changed, don't recompute it —
+cache the result to disk, keyed on the inputs, and reuse it.
+
+- Cache key = a hash of the inputs (and code version if relevant), so stale
+  caches invalidate automatically.
+- Caches are disposable: deleting the cache directory must only cost time, and
+  the cache dir is git-ignored.
+- This is what lets analysis notebooks re-run in seconds instead of hours.
+
+## 4. Map / vectorize instead of hand-rolled loops
+
+Prefer a `map`, comprehension, or vectorized array operation over a manual
+index loop that pre-allocates and fills. It is shorter, harder to get wrong
+(no off-by-one, no forgotten init), and usually faster.
+
+- "For each x, compute f(x)" → `map(f, xs)` / `[f(x) for x in xs]` / vectorized.
+- Reserve explicit loops for genuine sequential state (running accumulators,
+  early exit, side-effecting I/O).
+
+## 5. Small, single-purpose functions
+
+A function should do one thing, be nameable in a short verb phrase, and fit on
+a screen. If you need "and" to describe it, split it.
+
+- Small functions are testable, reusable, and self-documenting.
+- Deep nesting or a 200-line function is a refactor waiting to happen.
+
+## 6. Test-driven development
+
+Write a test that captures the intended behavior, watch it fail, then write the
+code that makes it pass. Tests describe *what the code should do* and let you
+refactor without fear.
+
+- Test behavior and edge cases, not implementation details.
+- Every bug fixed gets a regression test that would have caught it.
+- Tests run with one command and (ideally) in CI on every push.
+
+## 7. Never store secrets or credentials in code
+
+No passwords, API keys, tokens, or connection strings in source — ever, not
+even "temporarily." Once committed, assume it's compromised.
+
+- Read secrets from environment variables or a config file that is git-ignored.
+- Provide a committed `.env.example` / template showing the *names*, not values.
+- The same applies to hard-coded absolute data paths — make roots configurable,
+  don't bake `/Users/yourname/...` into the analysis.
+
+---
+
+## Using this skill
+
+When asked to write or refactor lab code:
+
+1. Read this file for the principles.
+2. Read the matching `languages/<lang>.md` for idioms and the exact tooling.
+3. Produce code that already follows these defaults — don't write the "before"
+   version and wait to be corrected.
