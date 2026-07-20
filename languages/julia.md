@@ -1,6 +1,6 @@
 # delab practices — Julia
 
-Idioms and tooling for the ten core principles in `../SKILL.md`. Defaults below
+Idioms and tooling for the eleven core principles in `../SKILL.md`. Defaults below
 are lab recommendations; where a tool is named, it's a strong default you may
 swap if a project already standardized on something else.
 
@@ -340,6 +340,40 @@ rate = median(counts) / window
 
 The reader may not have your commit log, tickets, or session notes — comment the
 code that's in front of them. The same goes for commit messages.
+
+## 11. Optimize only when needed — and parallelize at the coarsest level
+
+Correctness and clarity first. When something really is too slow, **measure
+before you optimize** — `@btime` (BenchmarkTools) for a function, `@profile` +
+`Profile` for a whole run. In Julia the first fix is almost never parallelism:
+it's **type stability** (check `@code_warntype` or `JET.jl`), which often buys a
+10× on its own, then caching (principle 3) and broadcasting (principle 4).
+
+When you do need parallelism, run it at the coarsest level — one substantial task
+per session/subject, not per trial:
+
+```julia
+# ❌ fine-grained: per-trial overhead dwarfs the work
+Threads.@threads for t in all_trials ... end
+
+# ✅ coarse-grained: spawn one task per session, then fetch the results
+tasks   = [Threads.@spawn analyze_session(s) for s in sessions]
+results = fetch.(tasks)
+```
+
+For a handful of heavy, independent, uneven per-session tasks, `Threads.@spawn` +
+`fetch` is the idiomatic choice: the scheduler load-balances across threads and
+spawn overhead is nothing next to a whole-session analysis. (`@threads` — ideally
+`@threads :dynamic` — is for simple uniform loops over *many cheap* items, the
+fine-grained case you're avoiding here; `OhMyThreads.jl` offers an ergonomic
+`tmap`.) `analyze_session` is pure (principle 8), so tasks share no mutable state.
+
+**Threads or processes?** `Threads.@spawn` shares memory — workers see the same
+arrays with no copying — at low overhead, but stays on one machine and needs
+`julia -t auto`; use it when sessions share large read-only data. `pmap`/
+`Distributed` run separate worker *processes*: data is copied to them and startup
+costs more, but they isolate state and scale across machines — the path to a SLURM
+cluster (a later version). Stick with threads until you outgrow one node.
 
 ---
 

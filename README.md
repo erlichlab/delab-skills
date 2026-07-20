@@ -14,12 +14,13 @@ It's built around two goals:
 
 ## What's inside
 
-- **`SKILL.md`** — the ten core principles, stated language-agnostically:
+- **`SKILL.md`** — the eleven core principles, stated language-agnostically:
   package/environment management, functional code, caching expensive results,
   `map`/vectorization over hand-rolled loops, small single-purpose functions,
   test-driven development, never storing secrets or hard-coded paths, keeping
-  I/O, analysis, and plotting in separate layers, failing loudly, and comments
-  that explain the present rather than the history.
+  I/O, analysis, and plotting in separate layers, failing loudly, comments that
+  explain the present rather than the history, and optimizing only when needed
+  (parallelizing at the coarsest level).
 - **`languages/`** — per-language idioms and concrete *before → after*
   examples: `python.md`, `julia.md`, `matlab.md`, `r.md`.
 
@@ -48,6 +49,10 @@ frontmatter is what Skill-aware tools use to load it automatically.
 
 Early — `v0.1`. Python, Julia, and MATLAB are fleshed out; R is next.
 Feedback and contributions from the lab are welcome.
+
+Planned for a later version: a section on scaling analyses to the cluster
+(SLURM) — job arrays over sessions/subjects, resource requests, and how it
+extends principle 11.
 
 ## Credits
 

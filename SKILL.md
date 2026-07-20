@@ -171,6 +171,30 @@ non-obvious reason it has to be this way. It is not a changelog.
 - **Corollary:** the same applies to commit messages — say what the change does
   and why, understandable to someone without the back-story.
 
+## 11. Optimize only when needed — and parallelize at the coarsest level
+
+Write for correctness and clarity first. Most code is fast enough; don't trade
+readability for speed you don't need.
+
+- **Measure before optimizing.** Profile to find the actual bottleneck instead of
+  guessing — the slow line is rarely where you'd bet. Often the real fix is
+  caching (principle 3) or vectorizing (principle 4), not hand-tuning, and those
+  come first.
+- **When you do need speed, parallelize at the highest level.** Most lab code is
+  *embarrassingly parallel* over sessions, subjects, or animals — independent
+  units with no shared state. Parallelize over those, not over inner iterations.
+- **Coarse beats fine.** Parallelizing over *trials* is bad: thousands of tiny
+  tasks whose per-task overhead — spawning workers, copying data to them —
+  dwarfs the work. Over *sessions* it's good: each worker does substantial work
+  and loads its own data once. A pure per-session analysis function (principle 8)
+  is exactly the unit to map and then parallelize.
+- **Threads or processes?** Shared-memory threads have low overhead but stay on
+  one machine; separate processes isolate state and can scale across machines.
+  The right pick is language-specific (and Python's GIL rules out threads for
+  CPU-bound work) — see your language file.
+- Scaling past one machine (a cluster / SLURM) is the same idea one level up —
+  covered in a later version.
+
 ---
 
 ## Using this skill

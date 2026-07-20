@@ -1,6 +1,6 @@
 # delab practices — MATLAB
 
-Idioms and tooling for the ten core principles in `../SKILL.md`, matched to the
+Idioms and tooling for the eleven core principles in `../SKILL.md`, matched to the
 lab's [elutils](https://github.com/erlichlab/elutils) conventions. Where elutils
 already establishes a pattern (`+packages`, `utils.inputordefault`, axis-handle
 plotting), follow it so lab code stays consistent.
@@ -139,6 +139,13 @@ results = arrayfun(@(g) fit_subject(big_table(gid == g, :)), 1:numel(subj));
 
 Now `fit_subject` can be unit-tested on one subject. (`splitapply`/`rowfun` are
 the fully vectorized route when the body fits their shape.)
+
+**Use the map-style functions — they're underused.** Many people reach for a
+`for` loop because `arrayfun`, `cellfun`, and `structfun` feel unfamiliar, but
+they *are* MATLAB's `map` and make the intent obvious (pass `'UniformOutput',
+false` when the result isn't a scalar per element). One exception: `bsxfun` is
+legacy — since R2016b MATLAB expands sizes implicitly, so write `a - mean(a)`,
+not `bsxfun(@minus, a, mean(a))`.
 
 ## 5. Small, single-purpose functions
 
@@ -324,6 +331,42 @@ The reader may not have your commit log, tickets, or session notes — comment t
 code that's in front of them. (Keep the separate *help block* below the signature
 — see the MATLAB-specific note — that's documentation, not a comment about a
 line.)
+
+## 11. Optimize only when needed — and parallelize at the coarsest level
+
+Correctness and clarity first. When something really is too slow, **profile
+before you optimize** — `profile on` / `profile viewer`, or `timeit` and
+`tic`/`toc` for a single call. Usually the fix is preallocation, vectorization
+(principle 4), or caching (principle 3), not parallelism.
+
+When you do need parallelism, run it at the coarsest level — one substantial task
+per session/subject, not per trial (requires the Parallel Computing Toolbox):
+
+```matlab
+% ❌ fine-grained: per-trial overhead dwarfs the work
+parfor t = 1:numel(all_trials)
+    r(t) = process_trial(all_trials(t));
+end
+
+% ✅ coarse-grained: one independent, substantial task per session
+results = cell(1, numel(sessions));
+parfor s = 1:numel(sessions)
+    results{s} = analyze_session(sessions(s));   % pure, loads its own data
+end
+```
+
+`analyze_session` is a pure per-session function (principle 8), so each worker
+loads its own data with no shared state. Start the pool once with `parpool`;
+`parfeval`/`batch` help when tasks are long-running.
+
+**Pool type — and implicit multithreading.** Since R2020a a pool is either
+`parpool("Processes")` (the default: separate process workers, ~one per core, full
+function support, data copied to each) or `parpool("threads")` (thread workers
+with shared memory, faster startup and no copy, but only a subset of functions
+supported). Default to Processes; switch to threads when workers share large data
+and the functions you call are supported. Separately, MATLAB already multithreads
+many built-in array and BLAS operations across cores on its own — so vectorized
+math (principle 4) uses your cores with no pool at all.
 
 ---
 

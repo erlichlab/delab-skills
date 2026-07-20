@@ -1,6 +1,6 @@
 # delab practices — Python
 
-Idioms and tooling for the ten core principles in `../SKILL.md`. Defaults
+Idioms and tooling for the eleven core principles in `../SKILL.md`. Defaults
 below are lab recommendations; where a tool is named, it's a strong default you
 may swap if a project already standardized on something else.
 
@@ -358,3 +358,35 @@ rate = np.median(counts) / window
 
 The reader may not have your commit log, tickets, or session notes — comment the
 code that's in front of them. The same goes for commit messages.
+
+## 11. Optimize only when needed — and parallelize at the coarsest level
+
+Correctness and clarity first. When something really is too slow, **profile
+before you optimize** — `python -m cProfile`, `%timeit` in a notebook,
+`line_profiler` for a hot function, or `py-spy` to sample a running process.
+Usually the fix is caching (principle 3) or vectorizing (principle 4), not
+parallelism.
+
+When you do need parallelism, run it at the coarsest level — one substantial task
+per session/subject, not per trial:
+
+```python
+from joblib import Parallel, delayed
+
+# ❌ fine-grained: per-trial overhead (spawning, pickling) dwarfs the work
+results = Parallel(n_jobs=-1)(delayed(process_trial)(t) for t in all_trials)
+
+# ✅ coarse-grained: one independent, substantial task per session
+results = Parallel(n_jobs=-1)(delayed(analyze_session)(s) for s in sessions)
+```
+
+`analyze_session` is a pure per-session function (principle 8), so each worker
+loads its own data once and there's no shared state.
+
+**Threads or processes?** For CPU-bound numeric work use *processes* — CPython's
+GIL stops threads from running Python bytecode in parallel, so `ThreadPoolExecutor`
+only helps I/O-bound tasks. joblib's default (`loky`) and
+`concurrent.futures.ProcessPoolExecutor` both use processes: real parallelism, but
+each task's arguments are pickled and shipped to the worker, so keep tasks coarse.
+And vectorized NumPy already uses multi-threaded BLAS under the hood — don't wrap
+it in more parallelism.
