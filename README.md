@@ -46,8 +46,8 @@ frontmatter is what Skill-aware tools use to load it automatically.
 
 ## Status
 
-Early — `v0.1`. Python is fleshed out as the format template; Julia, MATLAB,
-and R are next. Feedback and contributions from the lab are welcome.
+Early — `v0.1`. Python and Julia are fleshed out; MATLAB and R are next.
+Feedback and contributions from the lab are welcome.
 
 ## Credits
 
