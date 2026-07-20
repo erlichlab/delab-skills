@@ -60,7 +60,8 @@ Prefer **pure functions**: output depends only on inputs, no hidden reads or
 writes of global state, no surprise side effects.
 
 - Pass data in as arguments and return results; don't reach out to globals.
-- Separate *computation* (pure, testable) from *I/O and plotting* (the edges).
+- Separate *computation* (pure, testable) from *I/O and plotting* (the edges);
+  principle 8 spells this out as three concrete layers.
 - A function that both loads a file, computes, mutates a global, and plots is
   four functions wearing a trench coat.
 
@@ -78,9 +79,16 @@ cache the result to disk, keyed on the inputs, and reuse it.
 ## 4. Map / vectorize instead of hand-rolled loops
 
 Prefer a `map`, comprehension, or vectorized array operation over a manual
-index loop that pre-allocates and fills. It is shorter, harder to get wrong
-(no off-by-one, no forgotten init), and usually faster.
+index loop that pre-allocates and fills.
 
+- **Often the win is clarity, not speed.** Factor the loop body into a small,
+  named function and map over it: `map(fit_subject, subjids)`. Even when there's
+  no speedup at all — e.g. fitting one model per subject — this is shorter, has
+  no index bookkeeping to get wrong, reads as *what* it does, and lets you test
+  `fit_subject` on its own. It naturally pushes you toward small functions
+  (principle 5).
+- **For numeric array work it's *also* much faster.** A vectorized operation
+  replaces a Python-level loop with a compiled one.
 - "For each x, compute f(x)" → `map(f, xs)` / `[f(x) for x in xs]` / vectorized.
 - Reserve explicit loops for genuine sequential state (running accumulators,
   early exit, side-effecting I/O).
@@ -102,6 +110,10 @@ refactor without fear.
 - Test behavior and edge cases, not implementation details.
 - Every bug fixed gets a regression test that would have caught it.
 - Tests run with one command and (ideally) in CI on every push.
+- **Corollary — use synthetic fixtures, not real data files.** A test builds its
+  own tiny inputs, so a fresh clone with no lab data present still passes. This
+  keeps tests portable and fast, and dovetails with principle 7 (no hard-coded
+  data paths).
 
 ## 7. Never store secrets or credentials in code
 
@@ -112,6 +124,52 @@ even "temporarily." Once committed, assume it's compromised.
 - Provide a committed `.env.example` / template showing the *names*, not values.
 - The same applies to hard-coded absolute data paths — make roots configurable,
   don't bake `/Users/yourname/...` into the analysis.
+
+## 8. Separate I/O, analysis, and plotting
+
+Three layers, three functions: **load** the data, **compute** on it, **draw**
+it. Keep them apart.
+
+- **I/O** — loads and saves data (files, caches, databases). Knows about paths
+  and formats; hands back plain in-memory data. Pair it with caching (principle
+  3): try the cache, and only compute-and-save on a miss.
+- **Analysis** — pure computation on that in-memory data. No file access, no
+  plotting. This is the layer you unit-test.
+- **Plotting** — takes results (or calls the analysis) and draws. It accepts an
+  existing axis/handle to draw into and creates its own figure *only* if none is
+  given, so any single plot drops into a multi-panel figure unchanged.
+
+This is the concrete, three-layer form of functional code (principle 2). The
+payoff: you can test analysis without a disk or a display, swap a cache for a
+database without touching analysis, and reuse a one-panel plot inside a larger
+figure.
+
+## 9. Fail loudly
+
+When something unexpected happens, stop and surface it — don't paper over it with
+a silent default, a bare catch-all, or a `NaN` that quietly propagates. A loud
+failure at the source is a five-minute fix; a silent one becomes a wrong figure
+you trust for a month.
+
+- Validate inputs at the boundary and raise with a clear message (this is part
+  of what pydantic buys you — principle 7).
+- Never swallow an exception you didn't expect and can't handle.
+- A fallback value is acceptable only when it's a *deliberate, documented*
+  choice — say why in a comment (principle 10).
+
+## 10. Comments explain the present, not the history
+
+A comment explains the code that is there *now* — an invariant it must keep, or a
+non-obvious reason it has to be this way. It is not a changelog.
+
+- ✅ *why it must be this way*: "clip to ≥0; negative rates are a sensor glitch."
+- ❌ *history / process*: "changed from mean to median", "as planned in the design
+  doc", "was broken before, now fixed".
+- Drop references to planning docs, tickets (beyond a terse issue link), or
+  session notes — the reader may have none of that context.
+- Match the surrounding code's comment density and style.
+- **Corollary:** the same applies to commit messages — say what the change does
+  and why, understandable to someone without the back-story.
 
 ---
 

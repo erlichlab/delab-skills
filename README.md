@@ -14,10 +14,12 @@ It's built around two goals:
 
 ## What's inside
 
-- **`SKILL.md`** — the seven core principles, stated language-agnostically:
+- **`SKILL.md`** — the ten core principles, stated language-agnostically:
   package/environment management, functional code, caching expensive results,
   `map`/vectorization over hand-rolled loops, small single-purpose functions,
-  test-driven development, and never storing secrets or hard-coded paths.
+  test-driven development, never storing secrets or hard-coded paths, keeping
+  I/O, analysis, and plotting in separate layers, failing loudly, and comments
+  that explain the present rather than the history.
 - **`languages/`** — per-language idioms and concrete *before → after*
   examples: `python.md`, `julia.md`, `matlab.md`, `r.md`.
 
@@ -46,6 +48,15 @@ frontmatter is what Skill-aware tools use to load it automatically.
 
 Early — `v0.1`. Python is fleshed out as the format template; Julia, MATLAB,
 and R are next. Feedback and contributions from the lab are welcome.
+
+## Credits
+
+Inspired in part by Tim Holy's
+[`claude_config`](https://github.com/timholy/claude_config), which serves a
+similar purpose for Julia scientific computing. Several ideas here — the
+small, focused-rule format, the fail-fast stance, comments that explain the
+present rather than the history, synthetic test fixtures, and much of the
+forthcoming Julia guidance — draw on that work.
 
 ## Contributing
 

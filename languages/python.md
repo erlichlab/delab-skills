@@ -1,12 +1,13 @@
 # delab practices — Python
 
-Idioms and tooling for the seven core principles in `../SKILL.md`. Defaults
+Idioms and tooling for the ten core principles in `../SKILL.md`. Defaults
 below are lab recommendations; where a tool is named, it's a strong default you
 may swap if a project already standardized on something else.
 
 **Default stack:** `uv` (env + packaging), `ruff` (lint + format), `pytest`
 (tests), type hints on public functions, `pathlib` for paths, `joblib` or
-`functools` for caching, `numpy`/`pandas`/`polars` for vectorized data work.
+`functools` for caching, `numpy`/`pandas`/`polars` for vectorized data work,
+`pydantic` / `pydantic-settings` for config and boundary validation.
 
 ---
 
@@ -42,6 +43,18 @@ dependencies = [
 ```
 
 A collaborator runs `uv sync` and gets the exact same environment.
+
+> **Why `uv`, not `conda`?** A conda-only project isn't `pip install`-able, so
+> your library can't be used as a dependency by anyone outside conda — the main
+> reason we avoid it. On top of that: `uv.lock` is a cross-platform lockfile
+> with hashes that actually reproduces on another machine (a `conda env export`
+> bakes in platform-specific build strings and often breaks); uv is seconds-fast
+> so throwaway envs are practical; and one tool replaces pip, virtualenv, poetry,
+> and pyenv — it even installs Python itself (`uv python install`), which was
+> often the only reason to reach for conda. *Honest caveat:* conda's real edge is
+> shipping non-Python binaries (CUDA, GDAL, some bio/geo stacks). Most scientific
+> packages now ship PyPI wheels, but if a project genuinely needs conda-only
+> binaries, that's the exception.
 
 ## 2. Functional code
 
@@ -122,6 +135,43 @@ For non-array work, prefer a comprehension over an accumulator loop:
 features = [load_features(s) for s in sessions]
 ```
 
+**`map` isn't only about speed — it's about clarity.** Fitting a GLM per subject
+won't get faster, but factoring the loop body into a named function still wins.
+Watch it improve in two steps:
+
+❌ **Before** — the loop body inlines filtering, fitting, and unpacking
+
+```python
+results = {}
+for i in range(len(subjids)):
+    d = big_df[big_df.subjid == subjids[i]]
+    m = fit_glm(d)
+    results[i] = {"p": pvalue(m), "b": coef(m)}
+```
+
+🟡 **Better** — extract a small, testable function; the loop just calls it
+
+```python
+def fit_subject(subjid: str) -> dict:
+    d = big_df[big_df.subjid == subjid]
+    m = fit_glm(d)
+    return {"p": pvalue(m), "b": coef(m)}
+
+results = {s: fit_subject(s) for s in subjids}
+```
+
+✅ **Best** — map the function over the inputs
+
+```python
+results = list(map(fit_subject, subjids))
+```
+
+Now `fit_subject` can be unit-tested on one subject, reused elsewhere, and even
+run in parallel — none of which is possible when the logic is trapped in a loop
+body. (If you'd rather not have `fit_subject` reach for the global `big_df`,
+pass it in and bind it: `map(partial(fit_subject, big_df), subjids)` — see
+principle 2.)
+
 ## 5. Small, single-purpose functions
 
 ❌ **Before** — one function loads, cleans, models, and plots
@@ -166,6 +216,11 @@ uv run pytest            # red → implement mean_rt → green
 
 Every bug fixed gets a regression test that reproduces it first.
 
+**Use synthetic fixtures, not real data.** The test above builds its own tiny
+`DataFrame` — no session file on disk — so it passes on a fresh clone and in CI.
+Never point a test at `/data/...`; construct the minimal input inline or with a
+`pytest` fixture.
+
 ## 7. Never store secrets or hard-coded paths
 
 ❌ **Before** — credentials and an absolute path baked into source
@@ -175,16 +230,131 @@ DB = connect("postg:https://admin:hunter2@10.0.0.5/spikes")   # secret in git fo
 DATA = "/Users/jane/Dropbox/lab/data/session.csv"     # runs on exactly one machine
 ```
 
-✅ **After** — read from the environment / configurable roots
+✅ **After** — typed, validated config with `pydantic-settings`
 
 ```python
-import os
 from pathlib import Path
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
-DB_URL = os.environ["SPIKES_DB_URL"]                  # set outside the repo
-DATA_ROOT = Path(os.environ.get("LAB_DATA", "~/data")).expanduser()
-session = DATA_ROOT / "session.csv"
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="LAB_", env_file=".env")
+
+    db_url: str                                  # required: errors loudly if unset
+    data_root: Path = Path("~/data").expanduser()
+
+settings = Settings()                            # reads env / .env, validates types
+session = settings.data_root / "session.csv"     # a Path, guaranteed
 ```
 
-Commit a `.env.example` listing the variable *names* (never values), and add
-`.env` and `.cache/` to `.gitignore`.
+`Settings()` fails immediately with a clear message if `LAB_DB_URL` is missing,
+instead of a `KeyError` surfacing deep in the analysis. Commit a `.env.example`
+listing the variable *names* (never values), and add `.env` and `.cache/` to
+`.gitignore`.
+
+> **Where pydantic belongs:** the *boundaries* — config, experiment/analysis
+> parameters, and metadata loaded from files, CLI, or an API. A typed config
+> object also beats threading a dozen loose keyword arguments through your
+> functions (principle 2). Don't wrap per-row data or numpy arrays in pydantic
+> models — that's the wrong tool and it will be slow.
+
+## 8. Separate I/O, analysis, and plotting
+
+Three layers, three functions: load the data, compute on it, draw it.
+
+❌ **Before** — one function loads, computes, and plots
+
+```python
+def behavior_figure(subjid):
+    df = pd.read_csv(f"/data/{subjid}.csv")          # I/O + hard-coded path
+    perf = df.groupby("session")["correct"].mean()   # analysis
+    plt.figure()
+    plt.plot(perf)                                    # plotting — own figure only
+    plt.savefig(f"{subjid}.png")
+```
+
+You can't test the analysis without a file, the path exists on one machine, and
+the plot can never be one panel of a bigger figure.
+
+✅ **After** — I/O, analysis, and a plot that accepts an `ax`
+
+```python
+# --- I/O layer: load, with cache-or-compute (principle 3) ---
+def get_behavior(subjid: str) -> pd.DataFrame:
+    data = load_from_cache(subjid)
+    if data is None:                       # cache miss: do the work once, save it
+        data = compute_behavior(subjid)
+        save_to_cache(subjid, data)
+    return data
+
+# --- analysis layer: pure, testable, no I/O or plotting ---
+def session_performance(trials: pd.DataFrame) -> pd.Series:
+    return trials.groupby("session")["correct"].mean()
+
+# --- plotting layer: takes an ax, makes its own only if none is given ---
+def plot_behavior(subjid: str, ax: plt.Axes | None = None) -> plt.Axes:
+    perf = session_performance(get_behavior(subjid))
+    if ax is None:
+        _, ax = plt.subplots()
+    ax.plot(perf.index, perf.values, marker="o")
+    ax.set(xlabel="session", ylabel="P(correct)")
+    return ax
+```
+
+Because `plot_behavior` accepts an `ax`, single-subject panels compose into a
+grid with no changes:
+
+```python
+fig, axs = plt.subplots(1, 3, sharey=True)
+for ax, subj in zip(axs, subjects):
+    plot_behavior(subj, ax=ax)
+```
+
+> The manual cache-or-compute branch in `get_behavior` is exactly what
+> `joblib.Memory` (principle 3) automates — reach for the hand-written version
+> only when you need custom cache logic.
+
+## 9. Fail loudly
+
+❌ **Before** — a silent fallback hides a real problem
+
+```python
+def load_weight(subjid):
+    try:
+        return db.get_weight(subjid)
+    except Exception:
+        return 0.0          # a missing weight now looks like a 0 g animal
+```
+
+✅ **After** — let it fail where the problem actually is
+
+```python
+def load_weight(subjid: str) -> float:
+    weight = db.get_weight(subjid)              # raises if the subject is missing
+    if weight <= 0:
+        raise ValueError(f"implausible weight {weight!r} g for {subjid!r}")
+    return weight
+```
+
+A bare `except: pass` or a stand-in `0.0`/`NaN` turns a five-minute bug into a
+wrong figure you trust for a month. Use a fallback only when it's a deliberate,
+documented choice — and say why in a comment.
+
+## 10. Comments explain the present, not the history
+
+❌ **Before** — changelog and planning noise
+
+```python
+# changed from mean to median on 2026-05 (see analysis_plan.md, chunk 3)
+# used to crash on empty input, fixed now
+rate = np.median(counts) / window
+```
+
+✅ **After** — the invariant and the non-obvious why
+
+```python
+# median, not mean: a few giant ISIs from bursting would skew the mean
+rate = np.median(counts) / window
+```
+
+The reader may not have your commit log, tickets, or session notes — comment the
+code that's in front of them. The same goes for commit messages.
