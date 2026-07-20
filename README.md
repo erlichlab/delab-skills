@@ -46,7 +46,7 @@ frontmatter is what Skill-aware tools use to load it automatically.
 
 ## Status
 
-Early — `v0.1`. Python and Julia are fleshed out; MATLAB and R are next.
+Early — `v0.1`. Python, Julia, and MATLAB are fleshed out; R is next.
 Feedback and contributions from the lab are welcome.
 
 ## Credits
