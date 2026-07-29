@@ -111,6 +111,47 @@ anywhere can do real damage from a single bad command.
 - Regardless of sandbox: keep real data and secrets out of the agent's reach
   (principle 7), and confirm before anything destructive or irreversible.
 
+## Give the agent its own GitLab identity and a scoped token
+
+Two reasons: **attribution** — the agent's commits, pushes, issues, and MR
+comments show up as a bot, not you, so it's always clear what a human did versus
+an agent — and **least privilege** — a token tied to the bot can be scoped
+narrowly and revoked without touching your own account.
+
+**Identity.** Give the agent its own GitLab identity, either:
+
+- **A dedicated bot user account** (works on any tier): create a new GitLab user
+  for the agent and add it to *only* the projects it needs, as a **Developer**.
+  Point the agent's git at that identity (`git config user.name` / `user.email`)
+  so commits match the pushing user.
+- **A project access token** (Project → Settings → Access tokens): GitLab creates
+  a project-scoped bot user automatically, so you get separate attribution *and*
+  the token in one step — the more fine-grained option, since it can reach only
+  that one project.
+
+**Token scope and role.** GitLab's scopes are coarser than GitHub's — there is no
+"issues only" scope. Creating issues and updating merge requests both need the
+**`api`** scope, and `api` also covers git push over HTTPS, so a single
+`api`-scoped token is all the PM needs. Make it *fine-grained* by limiting reach
+and role, not scope:
+
+- **Prefer a project (or group) access token over a personal one.** A personal
+  token can act on *everything you can access*; a project access token can act
+  only on its project — a far smaller blast radius if it leaks.
+- **Role: Developer.** Enough to push feature branches, create issues, and
+  open/update MRs. Leave merging into protected `main` to a Maintainer (you) —
+  which matches the review gate: the agent proposes, a human merges.
+- **Short expiry, and rotate.** Put the token in an environment variable or the
+  git credential store; never commit it (principle 7), and revoke it when the bot
+  is done.
+
+Scope cheat-sheet (GitLab):
+
+- `api` — create/update issues and MRs, comment, **and** push over HTTPS.
+  Required for this workflow.
+- `write_repository` — push only, no API; not enough on its own, because the PM
+  must also create issues and MRs.
+
 ## Common pitfalls
 
 - **Rubber-stamping plans.** If you approve complex issues without reading them,

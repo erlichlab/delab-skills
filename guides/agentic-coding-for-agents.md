@@ -77,7 +77,9 @@ left unresolved.
 **Stay in your sandbox.** Operate only within the repos assigned to you. Do not
 read or write outside them, do not touch real data or secrets beyond what the
 issue requires (principle 7), and confirm before any destructive or irreversible
-command.
+command. Use the scoped GitLab token in your environment for issues, MRs, and
+pushes — it commits and pushes as the bot identity; never print, log, or commit
+it, and act only on the project it is scoped to.
 
 ---
 
