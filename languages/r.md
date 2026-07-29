@@ -4,9 +4,10 @@ Idioms and tooling for the eleven core principles in `../SKILL.md`. Defaults
 below are lab recommendations; where a tool is named, it's a strong default you
 may swap if a project already standardized on something else.
 
-**Default stack:** `renv` (environments), the `tidyverse` (`dplyr`, `tidyr`,
-`purrr`, `ggplot2`), `testthat` (tests), `memoise`/`targets` (caching), `here`
-(paths), `styler` + `lintr` (format/lint), `furrr`/`future` (parallelism).
+**Default stack:** `renv` (environments) with `pak` for fast binary installs, the
+`tidyverse` (`dplyr`, `tidyr`, `purrr`, `ggplot2`), `testthat` (tests),
+`memoise`/`targets` (caching), `here` (paths), `styler` + `lintr` (format/lint),
+`furrr`/`future` (parallelism).
 
 R note: it's vectorized and functional, so vectorized and `purrr` code is
 idiomatic. User-level R code is single-threaded, so parallelism means separate
@@ -42,6 +43,48 @@ library(dplyr)
 
 For a shared analysis packaged as a package, declare dependencies in
 `DESCRIPTION` (`Imports:`) as well.
+
+### Get prebuilt binaries on Linux — don't compile from source
+
+Plain CRAN ships precompiled binaries only for Windows and macOS, so on Linux
+`renv`/`install.packages` often **compiles heavy packages from source**
+(`brms`, `RcppParallel`, `StanHeaders`, …) — slow, and it fails without the right
+system toolchain. Fix it in the project `.Rprofile` with two changes: use `pak`
+as the installer, and pull binaries from [Posit Public Package Manager
+(P3M)](https://p3m.dev) for the detected distro. It's best-effort — on an
+unsupported distro (or Windows/macOS, which already get CRAN binaries) it falls
+back to plain CRAN and still works, with no env vars or manual setup.
+
+```r
+# .Rprofile — after source("renv/activate.R")
+local({
+  # 1. Use pak as renv's installer backend (parallel downloads/installs).
+  options(renv.config.pak.enabled = TRUE)
+
+  # 2. On supported Linux distros, fetch precompiled binaries from P3M.
+  if (Sys.info()[["sysname"]] != "Linux") return(invisible())
+
+  codename <- tryCatch({
+    os <- readLines("/etc/os-release", warn = FALSE)
+    ln <- grep("^VERSION_CODENAME=", os, value = TRUE)
+    if (length(ln)) gsub('^VERSION_CODENAME=|"', "", ln[1]) else ""
+  }, error = function(e) "")
+
+  supported <- c("focal", "jammy", "noble",   # Ubuntu 20.04 / 22.04 / 24.04
+                 "bullseye", "bookworm")       # Debian 11 / 12
+  if (!codename %in% supported) return(invisible())   # fall back to CRAN
+
+  options(
+    repos = c(P3M = sprintf(
+      "https://packagemanager.posit.co/cran/__linux__/%s/latest", codename)),
+    # P3M only returns binaries when the client advertises its platform.
+    HTTPUserAgent = sprintf("R/%s R (%s)", getRversion(),
+      paste(getRversion(), R.version$platform, R.version$arch, R.version$os)))
+})
+```
+
+Committed to `.Rprofile`, a labmate just runs `renv::restore()` and gets binaries.
+(Working example: the `alm-riskychoice-2026` paper repo, `src/R/.Rprofile`.)
 
 ## 2. Functional code
 
