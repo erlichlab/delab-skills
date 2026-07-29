@@ -251,7 +251,9 @@ session   <- file.path(data_root, "session.csv")
 
 Keep secrets in a git-ignored `.Renviron` (read via `Sys.getenv`) or the `keyring`
 package. Use `here::here()` for paths *inside* the project — never `setwd()` or
-absolute paths — and git-ignore `.Renviron` and the cache directory.
+absolute paths — and git-ignore `.Renviron` and the cache directory. Also git-
+ignore R's session cruft — `.Rhistory`, `.RData`, `.Rproj.user/` — and never
+commit `renv/library/`; the lockfile (principle 1) is enough to rebuild it.
 
 ## 8. Separate I/O, analysis, and plotting
 

@@ -124,6 +124,10 @@ even "temporarily." Once committed, assume it's compromised.
 - Provide a committed `.env.example` / template showing the *names*, not values.
 - The same applies to hard-coded absolute data paths — make roots configurable,
   don't bake `/Users/yourname/...` into the analysis.
+- Keep generated cruft out of the repo: caches, build artifacts, and editor or
+  session files belong in `.gitignore`. For OS junk that shows up in *every* repo
+  — `.DS_Store`, editor swap files — set a **global** gitignore once so you never
+  fight it per-project: `git config --global core.excludesfile ~/.gitignore_global`.
 
 ## 8. Separate I/O, analysis, and plotting
 
