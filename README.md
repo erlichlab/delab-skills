@@ -47,8 +47,8 @@ frontmatter is what Skill-aware tools use to load it automatically.
 
 ## Status
 
-Early — `v0.1`. Python, Julia, and MATLAB are fleshed out; R is next.
-Feedback and contributions from the lab are welcome.
+Early — `v0.1`. All four language files (Python, Julia, MATLAB, R) are
+fleshed out. Feedback and contributions from the lab are welcome.
 
 Planned for a later version: a section on scaling analyses to the cluster
 (SLURM) — job arrays over sessions/subjects, resource requests, and how it

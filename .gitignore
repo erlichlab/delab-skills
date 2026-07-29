@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# R session cruft
+.Rhistory
+.RData
+.Renviron
+.Rproj.user/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Caches / regenerable local results
+.cache/
+data/caches/
+
+# Secrets / local config
+.env
