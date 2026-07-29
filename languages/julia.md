@@ -1,6 +1,6 @@
 # delab practices — Julia
 
-Idioms and tooling for the eleven core principles in `../SKILL.md`. Defaults below
+Idioms and tooling for the core principles in `../SKILL.md`. Defaults below
 are lab recommendations; where a tool is named, it's a strong default you may
 swap if a project already standardized on something else.
 
@@ -379,7 +379,7 @@ cluster (a later version). Stick with threads until you outgrow one node.
 
 ## Julia-specific: write generic code
 
-These aren't among the ten core principles, but they're where lab Julia code
+These aren't among the core principles, but they're where lab Julia code
 most often goes wrong. They also reinforce principle 2 (reuse) and principle 9
 (fail loudly, not silently wrong).
 

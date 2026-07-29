@@ -1,6 +1,6 @@
 # delab practices — Python
 
-Idioms and tooling for the eleven core principles in `../SKILL.md`. Defaults
+Idioms and tooling for the core principles in `../SKILL.md`. Defaults
 below are lab recommendations; where a tool is named, it's a strong default you
 may swap if a project already standardized on something else.
 

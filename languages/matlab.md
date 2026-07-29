@@ -1,6 +1,6 @@
 # delab practices — MATLAB
 
-Idioms and tooling for the eleven core principles in `../SKILL.md`, matched to the
+Idioms and tooling for the core principles in `../SKILL.md`, matched to the
 lab's [elutils](https://github.com/erlichlab/elutils) conventions. Where elutils
 already establishes a pattern (`+packages`, `utils.inputordefault`, axis-handle
 plotting), follow it so lab code stays consistent.

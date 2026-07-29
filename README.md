@@ -14,13 +14,14 @@ It's built around two goals:
 
 ## What's inside
 
-- **`SKILL.md`** — the eleven core principles, stated language-agnostically:
+- **`SKILL.md`** — the twelve core principles, stated language-agnostically:
   package/environment management, functional code, caching expensive results,
   `map`/vectorization over hand-rolled loops, small single-purpose functions,
   test-driven development, never storing secrets or hard-coded paths, keeping
   I/O, analysis, and plotting in separate layers, failing loudly, comments that
-  explain the present rather than the history, and optimizing only when needed
-  (parallelizing at the coarsest level).
+  explain the present rather than the history, optimizing only when needed
+  (parallelizing at the coarsest level), and working in short-lived feature
+  branches.
 - **`languages/`** — per-language idioms and concrete *before → after*
   examples: `python.md`, `julia.md`, `matlab.md`, `r.md`.
 

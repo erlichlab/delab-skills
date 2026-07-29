@@ -199,6 +199,27 @@ readability for speed you don't need.
 - Scaling past one machine (a cluster / SLURM) is the same idea one level up —
   covered in a later version.
 
+## 12. Work in short-lived, feature-specific branches
+
+Do your work on a branch named for one feature or fix, keep it small, and merge it
+into `main` through a merge request. Don't let a branch live for weeks or collect
+unrelated changes.
+
+- **One branch, one purpose.** Name it for what it does (`add-r-language`,
+  `fix-cache-key`), not `wip` or `my-branch`.
+- **Keep `main` working.** `main` should always be in a runnable state; do
+  exploratory or half-finished work on a branch, never directly on `main`.
+- **Short-lived beats long-lived.** A small branch is easy to review and rarely
+  conflicts; a branch that drifts for weeks becomes a merge headache — merge early
+  and often.
+- **Open a merge request** so changes are reviewed before they land, and **delete
+  the branch** once it's merged.
+- The lab uses **GitLab** by default (a few projects live on GitHub); the flow is
+  the same — branch, push, open a merge/pull request, merge to `main`.
+
+Commit messages follow principle 10 (explain the present, not the history), and
+`.gitignore` keeps generated cruft out of the repo (principle 7).
+
 ---
 
 ## Using this skill
