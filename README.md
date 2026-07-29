@@ -23,9 +23,17 @@ It's built around two goals:
   (parallelizing at the coarsest level).
 - **`languages/`** — per-language idioms and concrete *before → after*
   examples: `python.md`, `julia.md`, `matlab.md`, `r.md`.
+- **`guides/`** — how to *work with LLM agents* in the lab:
+  [`agentic-coding-for-humans.md`](guides/agentic-coding-for-humans.md) (you as
+  PI: set goals, approve complex plans, own correctness) and
+  [`agentic-coding-for-agents.md`](guides/agentic-coding-for-agents.md)
+  (instructions for the project-manager / worker / reviewer roles).
 
 The assistant loads `SKILL.md` for the principles and the matching
-`languages/<lang>.md` file when it knows which language you're working in.
+`languages/<lang>.md` file when it knows which language you're working in. The
+`guides/` describe the *workflow* around the agents — a PM agent decomposing work
+into GitLab issues, delegating to worker subagents, and gating complex plans on
+your confirmation.
 
 ## Installing
 
