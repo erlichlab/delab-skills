@@ -1,0 +1,19 @@
+{
+  "$schema": "https://code.claude.com/schemas/marketplace.json",
+  "name": "delab",
+  "owner": {
+    "name": "Erlich Lab (delab), Sainsbury Wellcome Centre",
+    "url": "https://gitlab.com/sainsbury-wellcome-centre/delab"
+  },
+  "description": "Erlich lab plugins for consistent, reproducible research code.",
+  "metadata": {
+    "pluginRoot": "./plugins"
+  },
+  "plugins": [
+    {
+      "name": "delab-coding-practices",
+      "source": "./plugins/delab-coding-practices",
+      "description": "Lab coding standards (Python, Julia, MATLAB, R) plus agentic-coding and GitLab workflow guides."
+    }
+  ]
+}
