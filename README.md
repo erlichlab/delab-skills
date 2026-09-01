@@ -28,7 +28,9 @@ It's built around two goals:
   [`agentic-coding-for-humans.md`](guides/agentic-coding-for-humans.md) (you as
   PI: set goals, approve complex plans, own correctness) and
   [`agentic-coding-for-agents.md`](guides/agentic-coding-for-agents.md)
-  (instructions for the project-manager / worker / reviewer roles).
+  (instructions for the project-manager / worker / reviewer roles). Plus
+  [`gitlab-workflow.md`](guides/gitlab-workflow.md) — the practical GitLab
+  branch/MR workflow behind principle 12.
 
 The assistant loads `SKILL.md` for the principles and the matching
 `languages/<lang>.md` file when it knows which language you're working in. The

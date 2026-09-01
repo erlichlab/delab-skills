@@ -218,7 +218,9 @@ unrelated changes.
   the same — branch, push, open a merge/pull request, merge to `main`.
 
 Commit messages follow principle 10 (explain the present, not the history), and
-`.gitignore` keeps generated cruft out of the repo (principle 7).
+`.gitignore` keeps generated cruft out of the repo (principle 7). For the
+practical GitLab setup — deleting merged branches automatically, and a backstop
+for catching drifting branches — see `guides/gitlab-workflow.md`.
 
 ---
 
