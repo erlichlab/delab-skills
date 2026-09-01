@@ -1,5 +1,4 @@
 ---
-name: delab-coding-practices
 description: >-
   Coding standards for the Erlich lab (delab). Load this whenever you are
   writing, reviewing, or refactoring research code in Python, Julia, MATLAB,

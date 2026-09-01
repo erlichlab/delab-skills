@@ -1,0 +1,23 @@
+{
+  "name": "delab-coding-practices",
+  "description": "Coding standards for the Erlich lab (delab): reproducible environments, functional and testable code, cached computation, vectorization, small functions, and keeping secrets and hard-coded paths out of the repo — with before/after examples for Python, Julia, MATLAB, and R, plus guides for agentic coding and the lab's GitLab workflow.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Erlich Lab (delab), Sainsbury Wellcome Centre",
+    "url": "https://gitlab.com/sainsbury-wellcome-centre/delab"
+  },
+  "homepage": "https://github.com/erlichlab/delab-skills",
+  "repository": "https://github.com/erlichlab/delab-skills",
+  "license": "BSD-3-Clause",
+  "keywords": [
+    "coding-standards",
+    "research-software",
+    "reproducibility",
+    "python",
+    "julia",
+    "matlab",
+    "r",
+    "neuroscience"
+  ],
+  "skills": "./skills"
+}
