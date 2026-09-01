@@ -6,9 +6,6 @@
     "url": "https://gitlab.com/sainsbury-wellcome-centre/delab"
   },
   "description": "Erlich lab plugins for consistent, reproducible research code.",
-  "metadata": {
-    "pluginRoot": "./plugins"
-  },
   "plugins": [
     {
       "name": "delab-coding-practices",
