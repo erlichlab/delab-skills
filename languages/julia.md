@@ -292,6 +292,28 @@ fig
 (Prefer `nothing`/`isnothing` for an absent optional argument; reserve `missing`
 for genuinely missing *data*.)
 
+**Inject pre-fetched data.** Give the I/O function an optional `data` keyword: if
+the caller passes already-loaded data, use it and skip I/O; otherwise fall back to
+cache-or-fetch. Now one bulk query replaces N per-subject calls, and the same code
+runs offline or in a test with no network.
+
+```julia
+function get_behavior(subjid; data = nothing)
+    if !isnothing(data)                          # caller pre-fetched: no I/O, just select
+        return filter(:subjid => ==(subjid), data)
+    end
+    cached = load_from_behavior_cache(subjid)
+    if isnothing(cached)
+        cached = compute_behavior(subjid)
+        save_to_behavior_cache(subjid, cached)
+    end
+    return cached
+end
+
+all_trials = fetch_all_behavior(sessids)         # one bulk query, not length(sessids)
+perf = map(s -> session_performance(get_behavior(s; data = all_trials)), sessids)
+```
+
 ## 9. Fail loudly
 
 ❌ **Before** — a silent fallback hides a real problem

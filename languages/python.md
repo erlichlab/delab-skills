@@ -313,6 +313,25 @@ for ax, subj in zip(axs, subjects):
 > `joblib.Memory` (principle 3) automates — reach for the hand-written version
 > only when you need custom cache logic.
 
+**Inject pre-fetched data.** Give the I/O function an optional `data` argument: if
+the caller passes already-loaded data, use it and skip I/O entirely; otherwise
+fall back to cache-or-fetch. Now one bulk query replaces N per-subject calls, and
+the same code runs offline or in a test with no network.
+
+```python
+def get_behavior(subjid: str, data: pd.DataFrame | None = None) -> pd.DataFrame:
+    if data is not None:                       # caller pre-fetched: no I/O, just select
+        return data[data["subjid"] == subjid]
+    cached = load_from_cache(subjid)
+    if cached is None:
+        cached = compute_behavior(subjid)
+        save_to_cache(subjid, cached)
+    return cached
+
+all_trials = fetch_all_behavior(subjids)       # one bulk query, not len(subjids)
+perf = {s: session_performance(get_behavior(s, data=all_trials)) for s in subjids}
+```
+
 ## 9. Fail loudly
 
 ❌ **Before** — a silent fallback hides a real problem
