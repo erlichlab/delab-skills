@@ -310,6 +310,28 @@ plots <- purrr::map(subjects, plot_behavior)
 wrap_plots(plots, nrow = 1)
 ```
 
+**Inject pre-fetched data.** Give the I/O function an optional `data` argument: if
+the caller passes already-loaded data, use it and skip I/O; otherwise fall back to
+cache-or-fetch. Now one bulk query replaces N per-subject calls, and the same code
+runs offline or in a test with no network.
+
+```r
+get_behavior <- function(subjid, data = NULL) {
+  if (!is.null(data)) {                      # caller pre-fetched: no I/O, just select
+    return(dplyr::filter(data, subjid == !!subjid))
+  }
+  cached <- load_from_behavior_cache(subjid)
+  if (is.null(cached)) {
+    cached <- compute_behavior(subjid)
+    save_to_behavior_cache(subjid, cached)
+  }
+  cached
+}
+
+all_trials <- fetch_all_behavior(subjids)    # one bulk query, not length(subjids)
+perf <- purrr::map(subjids, ~ session_performance(get_behavior(.x, data = all_trials)))
+```
+
 ## 9. Fail loudly
 
 ❌ **Before** — a silent fallback hides a real problem

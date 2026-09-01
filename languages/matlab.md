@@ -281,6 +281,30 @@ for i = 1:numel(subjects)
 end
 ```
 
+**Inject pre-fetched data.** Give the I/O function an optional `'data'` argument: if
+the caller passes already-loaded data, use it and skip I/O; otherwise fall back to
+cache-or-fetch. Now one bulk query replaces N per-subject calls, and the same code
+runs offline or in a test with no network.
+
+```matlab
+function data = get_behavior(subjid, varargin)
+    data = utils.inputordefault('data', [], varargin);
+    if ~isempty(data)                         % caller pre-fetched: no I/O, just select
+        data = data(data.subjid == subjid, :);
+        return
+    end
+    data = load_from_behavior_cache(subjid);
+    if isempty(data)
+        data = compute_behavior(subjid);
+        save_to_behavior_cache(subjid, data);
+    end
+end
+
+all_trials = fetch_all_behavior(subjids);     % one bulk query, not numel(subjids)
+perf = arrayfun(@(s) session_performance(get_behavior(s, 'data', all_trials)), ...
+                subjids, 'UniformOutput', false);
+```
+
 ## 9. Fail loudly
 
 ❌ **Before** — a silent fallback hides a real problem

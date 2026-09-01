@@ -136,7 +136,9 @@ it. Keep them apart.
 
 - **I/O** — loads and saves data (files, caches, databases). Knows about paths
   and formats; hands back plain in-memory data. Pair it with caching (principle
-  3): try the cache, and only compute-and-save on a miss.
+  3): try the cache, and only compute-and-save on a miss. Give it an optional
+  argument to inject already-loaded data, so a caller can pre-fetch once (one
+  bulk query instead of N) and run offline — or in tests — with no I/O at all.
 - **Analysis** — pure computation on that in-memory data. No file access, no
   plotting. This is the layer you unit-test.
 - **Plotting** — takes results (or calls the analysis) and draws. It accepts an
