@@ -22,24 +22,33 @@ In Claude Code, add this repo as a marketplace and install the plugin:
 /plugin install delab-coding-practices@delab
 ```
 
-The first line registers the `delab` marketplace from GitHub; the second installs
-the `delab-coding-practices` plugin from it. Once installed, the skill loads
+The first line registers the `delab` marketplace; the second installs the
+`delab-coding-practices` plugin from it. Once installed, the skill loads
 automatically when you're writing or reviewing lab code, and you get three
 commands and two orchestration agents (below).
 
-> Not on GitHub yet? You can also add a marketplace from a local clone:
+> **Where the repo lives.** Development happens on GitLab
+> (`sainsbury-wellcome-centre/delab/delab-skills`); `erlichlab/delab-skills` on
+> GitHub is a mirror, and it's what `/plugin marketplace add` fetches — Claude
+> Code's `owner/repo` shorthand resolves to GitHub. Send merge requests to
+> GitLab. You can also add a marketplace straight from a local clone:
 > `/plugin marketplace add /path/to/delab-skills`.
 
 ### Commands
 
-- **`/delab-enforce-style [goal]`** — makes the main session act as the delab
-  **project manager**: it adopts the principles and the agentic workflow,
-  decomposing work into GitLab issues and delegating to the agents below (gating
-  complex plans on your confirmation).
-- **`/delab-review [path]`** — reviews the current diff (or a given path) against
-  the principles and reports violations with the principle number and a fix.
-- **`/delab-refactor <path>`** — rewrites the target code to follow the
-  principles, explaining each change.
+Plugin commands are namespaced by plugin, so these are the names that always
+work. The bare `/delab-review` form also works as long as no other installed
+plugin claims that name.
+
+- **`/delab-coding-practices:delab-enforce-style [goal]`** — makes the main
+  session act as the delab **project manager**: it adopts the principles and the
+  agentic workflow, decomposing work into GitLab issues and delegating to the
+  agents below (gating complex plans on your confirmation).
+- **`/delab-coding-practices:delab-review [path]`** — reviews the current diff
+  (or a given path) against the principles and reports violations with the
+  principle number and a fix.
+- **`/delab-coding-practices:delab-refactor <path>`** — rewrites the target code
+  to follow the principles, explaining each change.
 
 ### Agents
 
@@ -97,7 +106,7 @@ delab-skills/
 ├── plugins/
 │   └── delab-coding-practices/
 │       ├── .claude-plugin/plugin.json   # plugin manifest
-│       ├── commands/                    # /delab-enforce-style, /delab-review, /delab-refactor
+│       ├── commands/                    # delab-enforce-style, delab-review, delab-refactor
 │       ├── agents/                      # delab-coder, delab-reviewer
 │       └── skills/
 │           └── delab-coding-practices/
