@@ -166,7 +166,10 @@ Scope cheat-sheet (GitLab):
 ## Tooling notes
 
 - **Issues / branches / MRs:** GitLab by default (principle 12).
-- **Agents:** in Claude Code, the PM spawns worker and reviewer subagents; give
-  each the issue, a pointer to `../SKILL.md`, and only the files it needs.
+- **Roles map to agents.** You (the PI) talk to the **PM** — the main Claude Code
+  session. Run **`/delab-enforce-style`** to make it adopt the PM persona. It then
+  delegates work to the bundled **`delab-coder`** subagent and reviews with the
+  bundled **`delab-reviewer`** subagent (read-only), both shipped with this plugin
+  with the principles preloaded — so you don't hand-wire the standards each time.
 - **Model & cost:** use a stronger model for planning/review and a cheaper one for
   mechanical work; watch token spend on large fan-outs.

@@ -24,18 +24,32 @@ In Claude Code, add this repo as a marketplace and install the plugin:
 
 The first line registers the `delab` marketplace from GitHub; the second installs
 the `delab-coding-practices` plugin from it. Once installed, the skill loads
-automatically when you're writing or reviewing lab code, and you get two
-commands: `/delab-review` and `/delab-refactor` (below).
+automatically when you're writing or reviewing lab code, and you get three
+commands and two orchestration agents (below).
 
 > Not on GitHub yet? You can also add a marketplace from a local clone:
 > `/plugin marketplace add /path/to/delab-skills`.
 
 ### Commands
 
+- **`/delab-enforce-style [goal]`** — makes the main session act as the delab
+  **project manager**: it adopts the principles and the agentic workflow,
+  decomposing work into GitLab issues and delegating to the agents below (gating
+  complex plans on your confirmation).
 - **`/delab-review [path]`** — reviews the current diff (or a given path) against
   the principles and reports violations with the principle number and a fix.
 - **`/delab-refactor <path>`** — rewrites the target code to follow the
   principles, explaining each change.
+
+### Agents
+
+The plugin ships two subagents with the principles **preloaded**, so the PM
+delegates to them without hand-wiring the standards each time:
+
+- **`delab-coder`** — implements one work item following the principles (TDD for
+  infrastructure, synthetic-data-first for analysis pipelines).
+- **`delab-reviewer`** — a fresh, **read-only**, adversarial reviewer that checks
+  correctness and conformance to the principles, citing principle numbers.
 
 ### Using the guidance outside Claude Code
 
@@ -83,7 +97,8 @@ delab-skills/
 ├── plugins/
 │   └── delab-coding-practices/
 │       ├── .claude-plugin/plugin.json   # plugin manifest
-│       ├── commands/                    # /delab-review, /delab-refactor
+│       ├── commands/                    # /delab-enforce-style, /delab-review, /delab-refactor
+│       ├── agents/                      # delab-coder, delab-reviewer
 │       └── skills/
 │           └── delab-coding-practices/
 │               ├── SKILL.md
