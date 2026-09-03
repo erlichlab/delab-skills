@@ -89,9 +89,26 @@ delab-skills/
 │               ├── SKILL.md
 │               ├── languages/
 │               └── guides/
+├── scripts/check_plugin.py              # validates the layout above
+├── .gitlab-ci.yml                       # runs it on every push
 ├── LICENSE
 └── README.md
 ```
+
+### Checking the layout
+
+The structure above is a contract — JSON that must parse, a `source` path the
+loader must find, a `description` in each `SKILL.md` frontmatter without which
+the skill silently never loads, and Markdown links that must resolve. None of it
+is exercised until someone runs `/plugin install` and nothing appears, so it's
+checked instead:
+
+```bash
+python3 scripts/check_plugin.py
+```
+
+Standard library only — no environment to set up — and it runs in CI on every
+push. Run it before opening a merge request.
 
 ## Status
 
@@ -116,5 +133,6 @@ Julia guidance — draw on that work.
 
 Keep the principles language-agnostic in `SKILL.md`; put language-specific
 tooling and examples in the `languages/` files. Every practice should come with
-a short *before → after* pair and a one-line reason it matters. Work on a
-short-lived branch and open a merge/pull request (principle 12).
+a short *before → after* pair and a one-line reason it matters. Run
+`python3 scripts/check_plugin.py`, then work on a short-lived branch and open a
+merge/pull request (principle 12).
