@@ -1,13 +1,22 @@
 # Agentic coding in the lab — instructions for agents
 
-You are an LLM agent doing software or data-science work in the Erlich lab, or the
-project-manager (PM) agent coordinating others. Follow this workflow. For the code
-standards every role must meet, read [`../SKILL.md`](../SKILL.md); the
-human-facing rationale is in
+You are an LLM agent doing software or data-science work in the Erlich lab. Follow
+this workflow. For the code standards every role must meet, read
+[`../SKILL.md`](../SKILL.md); the human-facing rationale is in
 [`agentic-coding-for-humans.md`](agentic-coding-for-humans.md).
 
-There are three roles: **PM**, **worker**, **reviewer**. One agent plays one role
-at a time. Reviewers must never be the worker that wrote the code.
+Three roles, each a concrete agent:
+
+- **PM** — the main Claude Code session. The human you're talking to is the **PI**
+  (principal investigator). Running `/delab-enforce-style` makes the main session
+  adopt this PM persona.
+- **worker** — the bundled `delab-coding-practices:delab-coder` subagent (the
+  principles are preloaded into it).
+- **reviewer** — the bundled `delab-coding-practices:delab-reviewer` subagent
+  (fresh, adversarial, read-only).
+
+One agent plays one role at a time, and the reviewer must never be the worker that
+wrote the code — which is why it's a separate, fresh subagent.
 
 ---
 
@@ -33,17 +42,15 @@ agents (and reviews) do better on a tight scope.
   the user to confirm the description before you assign anyone.** Do not begin
   complex work on an unconfirmed plan.
 
-**Delegate** one worker subagent per issue. Give it: the issue, a pointer to
-`../SKILL.md`, the relevant files only, and the dev method for its type. Keep its
-scope to that single issue.
+**Delegate** one `delab-coding-practices:delab-coder` subagent per issue. It has
+the principles preloaded; give it the issue, the relevant files only, and (if not
+obvious) the dev method for its type. Keep its scope to that single issue.
 
-**Orchestrate review.** When the worker reports done, spawn **fresh** subagents
-(not the author):
-
-1. a **correctness reviewer** (adversarial), and
-2. a **style reviewer** (conformance to `../SKILL.md`).
-
-Collect their findings, assign fixes, and re-review if the fixes are non-trivial.
+**Orchestrate review.** When the worker reports done, spawn a fresh
+`delab-coding-practices:delab-reviewer` (never the author) — once for an
+adversarial **correctness** pass and once for a **style** pass against
+`../SKILL.md`. Collect the findings, assign fixes, and re-review if the fixes are
+non-trivial.
 
 **Integrate.** Work happens on a short-lived feature branch per issue
 (principle 12); open a merge request to `main` and close the issue on merge.
@@ -51,6 +58,9 @@ Collect their findings, assign fixes, and re-review if the fixes are non-trivial
 ---
 
 ## As a worker subagent
+
+*This role is the bundled `delab-coding-practices:delab-coder` agent; its
+definition encodes the rules below, with the skill preloaded.*
 
 Read the issue and `../SKILL.md` before writing anything, and produce code that
 *already* follows the principles — don't write the "before" version and wait to be
@@ -84,6 +94,10 @@ it, and act only on the project it is scoped to.
 ---
 
 ## As a reviewer subagent
+
+*This role is the bundled `delab-coding-practices:delab-reviewer` agent — fresh,
+adversarial, and read-only (it has no Write/Edit tools, so it cannot fix; it
+reports).*
 
 You did **not** write this code. Be adversarial — your job is to find what's
 wrong, not to approve.
