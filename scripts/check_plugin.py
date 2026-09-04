@@ -131,11 +131,45 @@ def check_plugin(plugin_dir: Path, expected_name: str) -> list[str]:
         if not frontmatter_field(skill, "description")
     ]
     problems += [
-        f"{command}: frontmatter has no `description`"
-        for command in sorted(plugin_dir.glob("commands/*.md"))
-        if not frontmatter_field(command, "description")
+        f"{entry}: frontmatter has no `description`"
+        for pattern in ("commands/*.md", "agents/*.md")
+        for entry in sorted(plugin_dir.glob(pattern))
+        if not frontmatter_field(entry, "description")
     ]
+    problems += check_manifest_paths(plugin_dir, manifest)
     problems += check_plugin_root_refs(plugin_dir)
+    return problems
+
+
+def check_manifest_paths(plugin_dir: Path, manifest: dict) -> list[str]:
+    """`commands` and `agents` in the manifest point at things the loader accepts.
+
+    Both fields replace the default directory rather than adding to it, and the
+    loader takes only Markdown files there — `agents` rejects a directory
+    outright ("Invalid string: must end with .md") and refuses to install the
+    plugin. Since `commands/` and `agents/` are scanned by default, the fix for
+    a directory value is almost always to drop the field.
+    """
+    problems = []
+    for field in ("commands", "agents"):
+        value = manifest.get(field)
+        if value is None:
+            continue
+        entries = [value] if isinstance(value, str) else value
+        for entry in entries:
+            target = plugin_dir / entry
+            if not str(entry).endswith(".md"):
+                kind = "a directory" if target.is_dir() else "not a Markdown file"
+                problems.append(
+                    f"{plugin_dir}: plugin.json `{field}` lists {entry} — {kind}; "
+                    f"list individual .md files, or drop `{field}` to use the "
+                    f"default {field}/ directory"
+                )
+            elif not target.is_file():
+                problems.append(
+                    f"{plugin_dir}: plugin.json `{field}` lists {entry}, "
+                    "which does not exist"
+                )
     return problems
 
 
