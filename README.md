@@ -62,10 +62,43 @@ delegates to them without hand-wiring the standards each time:
 
 ### Using the guidance outside Claude Code
 
-Every file is plain Markdown, so other assistants can use it too — point Cursor /
-Copilot at
-[`SKILL.md`](plugins/delab-coding-practices/skills/delab-coding-practices/SKILL.md)
-and the relevant `languages/*.md` as project rules or attached context.
+The skill follows the [Agent Skills](https://agentskills.io/specification) open
+standard, so it isn't Claude-only. Codex, Gemini CLI, Cursor and Copilot all
+discover skills from `.agents/skills/` — copy the skill directory there in your
+project, or into `~/.agents/skills/` to have it everywhere:
+
+```bash
+git clone https://github.com/erlichlab/delab-skills.git   # mirror of the GitLab repo
+mkdir -p ~/.agents/skills   # without this, cp silently names the skill "skills"
+cp -r delab-skills/plugins/delab-coding-practices/skills/delab-coding-practices \
+      ~/.agents/skills/
+```
+
+Copy the **whole directory**, not just `SKILL.md`: `languages/` and `guides/`
+are loaded on demand. Each agent also has its own path (`.gemini/skills/`,
+`.cursor/skills/`, `.github/skills/`) and its own precedence rules — see your
+agent's docs if you need a per-project override. To update, `git pull` and copy
+again; `cp -r` merges, so delete the destination first if you want files removed
+upstream to disappear.
+
+> **In Claude Code, use the plugin instead** — it does *not* read
+> `.agents/skills/`. See [Install as a plugin](#install-as-a-plugin) above.
+
+For an agent with no skill discovery, paste the raw files in as project rules or
+attached context — `SKILL.md` plus the `languages/` file for the language you're
+working in:
+
+```
+https://raw.githubusercontent.com/erlichlab/delab-skills/main/plugins/delab-coding-practices/skills/delab-coding-practices/SKILL.md
+https://raw.githubusercontent.com/erlichlab/delab-skills/main/plugins/delab-coding-practices/skills/delab-coding-practices/languages/python.md
+```
+
+The PM / worker / reviewer workflow does not travel: `delab-coder` and
+`delab-reviewer` are Claude Code subagents. Elsewhere it's text to read or paste
+—
+[`agentic-coding-for-agents.md`](plugins/delab-coding-practices/skills/delab-coding-practices/guides/agentic-coding-for-agents.md)
+and
+[`agentic-coding-for-humans.md`](plugins/delab-coding-practices/skills/delab-coding-practices/guides/agentic-coding-for-humans.md).
 
 ## What's inside
 
@@ -122,22 +155,28 @@ delab-skills/
 ### Checking the layout
 
 The structure above is a contract — JSON that must parse, a `source` path the
-loader must find, a `description` in each `SKILL.md` frontmatter without which
-the skill silently never loads, and Markdown links that must resolve. None of it
-is exercised until someone runs `/plugin install` and nothing appears, so it's
-checked instead:
+loader must find, frontmatter that satisfies the [Agent Skills
+spec](https://agentskills.io/specification) (a `name` matching the skill's
+directory, a `description` within the 1024-character cap, and YAML an agent can
+actually parse — without a description, or with broken YAML, a client skips the
+skill and says nothing), and Markdown links that must resolve. None of it is exercised until someone runs `/plugin install` and
+nothing appears, so it's checked instead:
 
 ```bash
-python3 scripts/check_plugin.py
+python3 -m unittest discover -s scripts -p 'test_*.py'   # the checker's own tests
+python3 scripts/check_plugin.py                          # this repo's tree
 ```
 
-Standard library only — no environment to set up — and it runs in CI on every
-push. Run it before opening a merge request.
+The checker only ever runs against a valid tree, so it cannot catch itself
+wrongly accepting a bad one — that's what the tests are for. Standard library
+only, no environment to set up, and both run in CI on every push. Run them
+before opening a merge request.
 
 ## Status
 
-Early — `v0.1`. All four language files (Python, Julia, MATLAB, R) are
-fleshed out, and the repo is packaged as an installable plugin. Feedback and
+Early — `v0.2`. All four language files (Python, Julia, MATLAB, R) are
+fleshed out, the repo is packaged as an installable plugin, and the skill
+follows the Agent Skills standard so it travels to other agents. Feedback and
 contributions from the lab are welcome.
 
 Planned for a later version: a section on scaling analyses to the cluster

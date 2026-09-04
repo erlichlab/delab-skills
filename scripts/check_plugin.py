@@ -7,9 +7,11 @@ Deliberate deviation from principle 1 (no pyproject/lockfile): this repo is
 plain Markdown and JSON with no runtime dependencies, so the check uses only
 the standard library and runs on a bare clone with no environment to create.
 
-Every check takes the repo root as an argument and returns a list of problem
-strings rather than printing or exiting, so each one is a pure function that
-can be pointed at a synthetic fixture tree in a test (principle 2, 6).
+Checks return a list of problem strings rather than printing or exiting, so
+they can be called from a test on a synthetic input (principle 2, 6). The
+frontmatter checks take parsed values rather than a path, so they need no
+filesystem at all. Tests are in scripts/test_check_plugin.py; the checks that
+walk the repo layout are still covered only by running against this repo.
 """
 
 from __future__ import annotations
@@ -17,6 +19,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+from itertools import takewhile
 from pathlib import Path
 
 # Markdown inline links: [text](target). Reference-style links and bare URLs in
@@ -25,6 +28,19 @@ LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 # ${CLAUDE_PLUGIN_ROOT}/... paths that a command file tells the agent to read.
 PLUGIN_ROOT_REF = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}/([A-Za-z0-9_./<>-]+)")
 FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
+# A top-level frontmatter key and whatever follows the colon on the same line.
+# Unindented only, so nothing inside a block scalar or a list can match.
+FRONTMATTER_KEY = re.compile(r"\A([A-Za-z0-9_-]+):(.*)\Z")
+# A YAML block-scalar indicator introducing a multi-line value: `>`, `|`, `>-`,
+# `|+`. The value itself is on the following indented lines. The rarer forms
+# that put the indentation indicator first (`|2-`) are not matched, and neither
+# is a trailing comment; both would leak the header into the parsed value.
+BLOCK_SCALAR = re.compile(r"\A[>|][+-]?\d*\Z")
+# Agent Skills spec: 1-64 characters, lowercase alphanumerics separated by
+# single hyphens. https://agentskills.io/specification
+SKILL_NAME = re.compile(r"\A[a-z0-9]+(?:-[a-z0-9]+)*\Z")
+SKILL_NAME_MAX = 64
+SKILL_DESCRIPTION_MAX = 1024
 
 
 def load_json(path: Path) -> tuple[dict | None, list[str]]:
@@ -32,31 +48,54 @@ def load_json(path: Path) -> tuple[dict | None, list[str]]:
     if not path.exists():
         return None, [f"{path}: missing"]
     try:
-        return json.loads(path.read_text()), []
+        return json.loads(path.read_text(encoding="utf-8")), []
     except json.JSONDecodeError as exc:
         return None, [f"{path}: invalid JSON — {exc}"]
 
 
-def frontmatter_field(path: Path, field: str) -> str | None:
-    """Value of a top-level scalar frontmatter field, or None if absent/empty.
+def parse_frontmatter(text: str) -> dict[str, str]:
+    """Top-level scalar fields of a YAML frontmatter block.
 
-    Good enough for `name:`/`description:`; it handles YAML block scalars
-    (`description: >-`) by treating any indented continuation as part of the
-    value, which is the only multi-line form used here.
+    Scalars only — a list value (`tools:`) is returned joined and is not
+    meaningful. Handles plain scalars, quoted scalars, and block scalars
+    (`description: >-`), whose value is the run of indented lines that follows.
+    A blank line is part of that run: it is the paragraph break inside a folded
+    scalar, so stopping at it would silently truncate the value.
     """
-    match = FRONTMATTER.match(path.read_text())
+    match = FRONTMATTER.match(text)
     if match is None:
-        return None
+        return {}
     lines = match.group(1).splitlines()
+    fields = {}
     for i, line in enumerate(lines):
-        if not line.startswith(f"{field}:"):
+        key_match = FRONTMATTER_KEY.match(line)
+        if key_match is None:
             continue
-        value = line[len(field) + 1 :].strip().lstrip(">|-").strip()
-        continuation = [
-            rest.strip() for rest in lines[i + 1 :] if rest.startswith((" ", "\t"))
-        ]
-        return " ".join(filter(None, [value, *continuation])) or None
-    return None
+        key, inline = key_match.group(1), key_match.group(2).strip()
+        block = takewhile(
+            lambda rest: not rest.strip() or rest.startswith((" ", "\t")),
+            lines[i + 1 :],
+        )
+        folded = BLOCK_SCALAR.match(inline)
+        parts = [] if folded else [inline]
+        parts += [rest.strip() for rest in block]
+        value = " ".join(part for part in parts if part)
+        # Quotes inside a block scalar are literal text, not YAML quoting.
+        fields[key] = value if folded else unquote(value)
+    return fields
+
+
+def unquote(value: str) -> str:
+    """Strip the surrounding quotes from a quoted plain YAML scalar."""
+    for quote in ('"', "'"):
+        if len(value) >= 2 and value.startswith(quote) and value.endswith(quote):
+            return value[1:-1]
+    return value
+
+
+def frontmatter_field(path: Path, field: str) -> str | None:
+    """Value of a top-level scalar frontmatter field, or None if absent/empty."""
+    return parse_frontmatter(path.read_text(encoding="utf-8")).get(field) or None
 
 
 def slugify(heading: str) -> str:
@@ -69,7 +108,7 @@ def slugify(heading: str) -> str:
 def anchors(path: Path) -> set[str]:
     return {
         slugify(line)
-        for line in path.read_text().splitlines()
+        for line in path.read_text(encoding="utf-8").splitlines()
         if line.startswith("#")
     }
 
@@ -123,13 +162,8 @@ def check_plugin(plugin_dir: Path, expected_name: str) -> list[str]:
     skill_files = sorted(skills_dir.glob("*/SKILL.md"))
     if not skill_files:
         problems.append(f"{skills_dir}: contains no <skill>/SKILL.md")
-    # A skill with no description is never auto-loaded, which fails silently at
-    # the only moment that matters — so treat it as an error, not a warning.
-    problems += [
-        f"{skill}: frontmatter has no `description`, so the skill will never load"
-        for skill in skill_files
-        if not frontmatter_field(skill, "description")
-    ]
+    for skill in skill_files:
+        problems += check_skill_frontmatter(skill)
     problems += [
         f"{entry}: frontmatter has no `description`"
         for pattern in ("commands/*.md", "agents/*.md")
@@ -139,6 +173,103 @@ def check_plugin(plugin_dir: Path, expected_name: str) -> list[str]:
     problems += check_manifest_paths(plugin_dir, manifest)
     problems += check_plugin_root_refs(plugin_dir)
     return problems
+
+
+def check_frontmatter_yaml(text: str) -> list[str]:
+    """Frontmatter breakages that make a client skip the skill silently.
+
+    A client that cannot parse the YAML drops the skill and logs the error
+    somewhere the author never looks, so these have to be caught here. Only the
+    two breakages that actually occur are checked; this is not a YAML validator.
+    """
+    match = FRONTMATTER.match(text)
+    if match is None:
+        return []
+    lines = match.group(1).splitlines()
+    problems = []
+    if any(line.startswith("\t") for line in lines):
+        problems.append(
+            "frontmatter is indented with tabs somewhere; YAML forbids tabs "
+            "for indentation and the skill will not parse"
+        )
+    for line in lines:
+        key_match = FRONTMATTER_KEY.match(line)
+        if key_match is None:
+            continue
+        value = key_match.group(2).strip()
+        if value[:1] in ('"', "'") or BLOCK_SCALAR.match(value):
+            continue
+        if ": " in value:
+            problems.append(
+                f"`{key_match.group(1)}` has an unquoted colon in {value!r}; "
+                "YAML reads it as a nested key — quote the value or use `>-`"
+            )
+    return problems
+
+
+def check_skill_frontmatter(skill: Path) -> list[str]:
+    """A skill's frontmatter satisfies the Agent Skills spec, not just Claude Code.
+
+    Claude Code infers a skill's name from its directory, so it loads a skill
+    whose frontmatter has no `name` at all. Clients are advised to be lenient
+    about the name and to skip a skill outright only when the description is
+    missing or the YAML will not parse — so the name checks keep us honest
+    against the spec, and the description and YAML checks are the ones that
+    decide whether the skill loads elsewhere.
+    """
+    text = skill.read_text(encoding="utf-8")
+    fields = parse_frontmatter(text)
+    if not fields:
+        return [f"{skill}: no parseable YAML frontmatter, so no agent will load it"]
+    problems = check_frontmatter_yaml(text)
+    problems += check_skill_name(fields.get("name"), skill.parent.name)
+    problems += check_skill_description(fields.get("description"))
+    return [f"{skill}: {problem}" for problem in problems]
+
+
+def check_skill_name(name: str | None, directory: str) -> list[str]:
+    """The `name` field is present, well-formed, and matches the directory."""
+    if name is None:
+        return [
+            "frontmatter has no `name`; Claude Code infers it from the directory, "
+            "but the Agent Skills spec requires it and other agents reject the "
+            "skill without it"
+        ]
+    if not name:
+        return ["`name` is empty"]
+    problems = []
+    if not SKILL_NAME.match(name):
+        problems.append(
+            f"`name` is {name!r}; the spec allows only lowercase letters and "
+            "digits separated by single hyphens — no uppercase, and no leading, "
+            "trailing or doubled hyphens"
+        )
+    if len(name) > SKILL_NAME_MAX:
+        problems.append(
+            f"`name` is {len(name)} characters; the spec caps it at {SKILL_NAME_MAX}"
+        )
+    if name != directory:
+        problems.append(
+            f"`name` is {name!r} but the directory is {directory!r}; "
+            "the spec requires them to match"
+        )
+    return problems
+
+
+def check_skill_description(description: str | None) -> list[str]:
+    """The `description` field is present and within the spec's length cap.
+
+    A skill with no description is never auto-loaded, which fails silently at
+    the only moment that matters — so treat it as an error, not a warning.
+    """
+    if not description:
+        return ["frontmatter has no `description`, so the skill will never load"]
+    if len(description) > SKILL_DESCRIPTION_MAX:
+        return [
+            f"`description` is {len(description)} characters; "
+            f"the spec caps it at {SKILL_DESCRIPTION_MAX}"
+        ]
+    return []
 
 
 def check_manifest_paths(plugin_dir: Path, manifest: dict) -> list[str]:
@@ -181,7 +312,7 @@ def check_plugin_root_refs(plugin_dir: Path) -> list[str]:
     """
     problems = []
     for command in sorted(plugin_dir.glob("commands/*.md")):
-        for ref in PLUGIN_ROOT_REF.findall(command.read_text()):
+        for ref in PLUGIN_ROOT_REF.findall(command.read_text(encoding="utf-8")):
             # `languages/<lang>.md` is a placeholder the agent fills in.
             target = plugin_dir / ref
             if "<" in ref:
@@ -197,7 +328,7 @@ def check_links(root: Path) -> list[str]:
     for doc in sorted(root.rglob("*.md")):
         if ".git" in doc.parts:
             continue
-        for target in LINK.findall(doc.read_text()):
+        for target in LINK.findall(doc.read_text(encoding="utf-8")):
             if target.startswith(("http://", "https://", "mailto:")):
                 continue
             path_part, _, anchor = target.partition("#")
