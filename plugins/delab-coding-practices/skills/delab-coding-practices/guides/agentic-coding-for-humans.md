@@ -182,7 +182,8 @@ Scope cheat-sheet (GitLab):
   **`/delab-workflow`** to put this workflow in front of an agent that is working
   the wrong way without handing it the PM role. It then
   delegates work to the bundled **`delab-coder`** subagent and reviews with the
-  bundled **`delab-reviewer`** subagent (read-only), both shipped with this plugin
+  bundled **`delab-reviewer`** subagent (which reports, never fixes), both
+  shipped with this plugin
   with the principles preloaded — so you don't hand-wire the standards each time.
 - **Model & cost:** the bundled agents already do this — `delab-coder` runs on
   Sonnet, `delab-reviewer` matches your session's model. Spend the capability on

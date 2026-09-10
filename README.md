@@ -63,19 +63,19 @@ delegates to them without hand-wiring the standards each time:
 | Agent | Role | Model | Isolation |
 | --- | --- | --- | --- |
 | **`delab-coder`** | Implements one work item (TDD for infrastructure, synthetic-data-first for analysis) | `sonnet` | own git worktree |
-| **`delab-reviewer`** | Fresh, **read-only**, adversarial correctness and style review, citing principle numbers | inherits yours | shared tree |
+| **`delab-reviewer`** | Fresh, adversarial correctness and style review, citing principle numbers; reports, never fixes | inherits yours | shared tree |
 
 Workers get their own worktree so several can run at once without fighting over
 the branch your working tree has checked out — assume the PI and other agents
 are editing in parallel. That worktree is branched from `origin/<default-branch>`,
 so a worker cannot see your uncommitted or unpushed work; push first if an item
-builds on it, and set `worktree.baseRef` to `head` if you want workers branching
-from your local HEAD instead.
+builds on it, or set `worktree.baseRef` to `head` in `.claude/settings.json` if you want
+workers branching from your local HEAD instead.
 
 Reviewers deliberately stay in the shared tree, because a worktree would not
-contain the work under review. They have Bash, so "read-only" is a rule they
-follow rather than something the tooling enforces — `delab-reviewer` is told to
-read diffs and never check anything out.
+contain the work under review. They have no Write or Edit tools but they do have
+Bash, so leaving your tree alone is a rule `delab-reviewer` is given, not one its
+tools enforce: it is told to read diffs and never check anything out.
 
 Capability goes where it pays: a scoped work item does not need the strongest
 model, adversarial review does. Note that `inherit` means your review is only as
@@ -117,8 +117,10 @@ https://raw.githubusercontent.com/erlichlab/delab-skills/main/plugins/delab-codi
 https://raw.githubusercontent.com/erlichlab/delab-skills/main/plugins/delab-coding-practices/skills/delab-coding-practices/languages/python.md
 ```
 
-The PM / worker / reviewer workflow does not travel: `delab-coder` and
-`delab-reviewer` are Claude Code subagents. Elsewhere it's text to read or paste
+The PM / worker / reviewer workflow does not travel as *machinery*: `delab-coder`
+and `delab-reviewer` are Claude Code subagents. The guides state the rules as
+intent, so another agent can be pointed at them and follow the same workflow by
+hand. Elsewhere it's text to read or paste
 —
 [`agentic-coding-for-agents.md`](plugins/delab-coding-practices/skills/delab-coding-practices/guides/agentic-coding-for-agents.md)
 and

@@ -43,9 +43,17 @@ SKILL_NAME_MAX = 64
 SKILL_DESCRIPTION_MAX = 1024
 # Subagent frontmatter values the loader accepts. A value outside these sets is
 # dropped silently: `isolation` becomes unset and the agent runs in the shared
-# working tree, which is the failure the field exists to prevent.
+# working tree, which is the failure the field exists to prevent. YAML scalars
+# are case-sensitive, so these are matched exactly rather than case-folded.
 AGENT_MODELS = {"sonnet", "opus", "haiku", "fable", "inherit"}
 AGENT_ISOLATION = {"worktree"}
+# A full model id, e.g. `claude-opus-5`.
+AGENT_MODEL_ID = re.compile(r"\A[a-z0-9]+(?:-[a-z0-9.]+)+\Z")
+# A variant suffix an alias or id may carry, e.g. `opus[1m]`.
+AGENT_MODEL_VARIANT = re.compile(r"\[[^\]]+\]\Z")
+# Tools that let an agent change files. One that has any of them must be
+# isolated; one that has none must not be — see check_agent_isolation.
+WRITING_TOOLS = {"Write", "Edit", "NotebookEdit"}
 
 
 def load_json(path: Path) -> tuple[dict | None, list[str]]:
@@ -279,31 +287,90 @@ def check_skill_description(description: str | None) -> list[str]:
     return []
 
 
+def strip_inline_comment(value: str) -> str:
+    """Drop a trailing YAML comment from an unquoted scalar.
+
+    Only for short enum values: a ` #` inside a description is ordinary text,
+    so this is not safe to apply to frontmatter in general.
+    """
+    if value[:1] in ('"', "'"):
+        return value
+    return value.split(" #", 1)[0].strip()
+
+
 def check_agent_frontmatter(agent: Path) -> list[str]:
     """An agent's `model` and `isolation` are values the loader will honour.
 
     Both are narrow enums, and a value outside them is ignored rather than
     rejected — `isolation: worktrees` leaves the agent in the shared tree with
     no error anywhere, so a typo silently undoes the isolation.
+
+    `model` is only checked for shape, since the set of real model ids is not
+    knowable here: any hyphenated lowercase word passes as an id. It catches a
+    mistyped alias, not a model that does not exist.
     """
     fields = parse_frontmatter(agent.read_text(encoding="utf-8"))
     problems = []
-    model = fields.get("model")
-    # A full model id (claude-sonnet-5) is also valid, so only flag a bare word
-    # that is not one of the aliases.
-    if model and "-" not in model and model.lower() not in AGENT_MODELS:
-        problems.append(
-            f"`model` is {model!r}; expected one of "
-            f"{', '.join(sorted(AGENT_MODELS))}, or a full model id"
-        )
-    isolation = fields.get("isolation")
-    if isolation and isolation not in AGENT_ISOLATION:
-        problems.append(
-            f"`isolation` is {isolation!r}; the loader accepts only "
-            f"{', '.join(sorted(AGENT_ISOLATION))} and ignores anything else, "
-            "leaving the agent in the shared working tree"
-        )
+
+    if "model" in fields:
+        model = strip_inline_comment(fields["model"])
+        if not model:
+            problems.append("`model` is empty; remove the key or give it a value")
+        else:
+            base = AGENT_MODEL_VARIANT.sub("", model)
+            if base not in AGENT_MODELS and not AGENT_MODEL_ID.match(base):
+                problems.append(
+                    f"`model` is {model!r}; expected one of "
+                    f"{', '.join(sorted(AGENT_MODELS))} (lowercase), or a full "
+                    "model id, either optionally with a [variant] suffix"
+                )
+
+    if "isolation" in fields:
+        isolation = strip_inline_comment(fields["isolation"])
+        if not isolation:
+            problems.append(
+                "`isolation` is empty, which leaves the agent in the shared "
+                "working tree — remove the key or give it a value"
+            )
+        elif isolation not in AGENT_ISOLATION:
+            problems.append(
+                f"`isolation` is {isolation!r}; the loader accepts only "
+                f"{', '.join(sorted(AGENT_ISOLATION))} (lowercase) and ignores "
+                "anything else, leaving the agent in the shared working tree"
+            )
+
+    problems += check_agent_isolation(fields)
     return [f"{agent}: {problem}" for problem in problems]
+
+
+def check_agent_isolation(fields: dict) -> list[str]:
+    """Isolation matches what the agent can do, which is what the design rests on.
+
+    An agent that can write must have its own checkout, or parallel agents
+    corrupt each other's work in the shared tree. An agent that cannot write
+    must NOT have one: an isolated checkout comes from the remote default
+    branch, so a reviewer inside one would not contain the work under review
+    and would report that nothing is wrong.
+
+    Checking the values are spelled right is not enough — dropping the key
+    entirely is the likelier way to lose either property, and spells no typo.
+    """
+    tools = set(fields.get("tools", "").replace("-", " ").split())
+    isolated = strip_inline_comment(fields.get("isolation", "")) in AGENT_ISOLATION
+    can_write = bool(tools & WRITING_TOOLS)
+    if can_write and not isolated:
+        return [
+            f"has {', '.join(sorted(tools & WRITING_TOOLS))} but no "
+            "`isolation: worktree`, so it edits the shared working tree that "
+            "the user and other agents are using"
+        ]
+    if isolated and not can_write:
+        return [
+            "is isolated but cannot write; an isolated checkout comes from the "
+            "remote default branch, so a read-only agent in one cannot see the "
+            "work it was given to review"
+        ]
+    return []
 
 
 def check_manifest_paths(plugin_dir: Path, manifest: dict) -> list[str]:

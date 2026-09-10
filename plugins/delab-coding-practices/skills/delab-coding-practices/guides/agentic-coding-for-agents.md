@@ -14,18 +14,19 @@ Three roles, each a concrete agent:
 - **worker** — the bundled `delab-coding-practices:delab-coder` subagent (the
   principles are preloaded into it).
 - **reviewer** — the bundled `delab-coding-practices:delab-reviewer` subagent
-  (fresh, adversarial, read-only).
+  (fresh and adversarial; it reports, it never fixes).
 
 One agent plays one role at a time, and the reviewer must never be the worker that
 wrote the code — which is why it's a separate, fresh subagent.
 
-The rules below are stated as intent, because this guide is read by agents other
-than Claude Code and each one spells the mechanism differently. In Claude Code
-the bundled agents already encode them: `delab-coder` carries `model: sonnet`
-and `isolation: worktree`, `delab-reviewer` carries `model: inherit`. Codex sets
-the same things under `[agents]` in `config.toml` or in the agent file; Copilot
-uses `model:` in a `.chatmode.md`. Check your own agent's documentation for the
-spelling — the intent is what matters.
+The rules below are stated as intent, because this guide is read by agents
+other than Claude Code and each spells the mechanism differently. In Claude
+Code the bundled `delab-coder` and `delab-reviewer` agents encode them
+directly. Elsewhere you arrange them yourself: per-agent model choice exists
+in Codex (under `[agents]` in `config.toml`) and in Copilot (`model:` in a
+`.chatmode.md`), while an isolated checkout may have no built-in equivalent at
+all — there, give each worker its own clone or worktree by hand. Check your
+agent's own documentation; the intent is what has to survive, not the spelling.
 
 ---
 
@@ -54,9 +55,11 @@ agents (and reviews) do better on a tight scope.
 **Keep the worklist visible — this is a hard rule.** The issues are the durable
 record, but the PI is reading a terminal, not GitLab. End every reply that
 changes the state of the work with the full list of items, one line each, marked
-`todo` / `in progress` / `in review` / `done` / `blocked`. Not a summary of what
-you just did — the whole list, every time, so the PI never has to reconstruct it
-by scrolling.
+`todo` / `in progress` / `in review` / `done` / `awaiting your confirmation` /
+`blocked`. Not a summary of what you just did — the whole list, every time, so
+the PI never has to reconstruct it by scrolling. The complexity gate above
+produces items awaiting confirmation, and those are the ones the PI most needs
+to see, so the list goes in that reply too.
 
 **Delegate** one `delab-coding-practices:delab-coder` subagent per issue. It has
 the principles preloaded; give it the issue, the relevant files only, and (if not
@@ -78,8 +81,11 @@ first and tell the worker the branch.
 **Reviewers stay in the shared tree** — an isolated checkout would not contain
 the work under review. A reviewer must therefore treat that tree as someone
 else's: read the diff, never check anything out. Tell each reviewer where the
-work is — branch, worktree path, or uncommitted in the shared tree — or it will
-review the wrong thing and report that everything is fine.
+work is **and what to diff it against** — the branch plus the base it was cut
+from. A branch alone is not enough: diffed against a stale local default branch
+it silently includes everyone else's merges, and the reviewer reports on work
+nobody asked about. Otherwise it reviews the wrong thing and reports that
+everything is fine.
 
 **Spend model capability where it pays.** Run workers on a cheaper model than
 reviewers. A scoped work item with written acceptance criteria does not need the
@@ -139,17 +145,19 @@ it, and act only on the project it is scoped to.
 
 ## As a reviewer subagent
 
-*This role is the bundled `delab-coding-practices:delab-reviewer` agent — fresh,
-adversarial, and read-only (it has no Write/Edit tools, so it cannot fix; it
-reports).*
+*This role is the bundled `delab-coding-practices:delab-reviewer` agent — fresh
+and adversarial. It has no Write or Edit tools, but it does have Bash, so
+leaving the shared tree untouched is a rule it is given, not something its tools
+guarantee.*
 
 You did **not** write this code. Be adversarial — your job is to find what's
 wrong, not to approve.
 
 Check you are looking at the right thing before you start. The work may be on a
 branch, in a worker's worktree, or uncommitted in the shared tree; if you were
-not told which, ask rather than guess. A review of the wrong tree reports that
-nothing is wrong, which is worse than no review at all.
+not told which, return and say what you need — a subagent has no channel to
+ask, so guessing is the only alternative and it is the wrong one. A review of
+the wrong tree reports that nothing is wrong, which is worse than no review.
 
 - **Correctness review:** hunt for bugs, wrong math or statistics, unhandled edge
   cases, and silent failures (principle 9). For data science, verify ground-truth

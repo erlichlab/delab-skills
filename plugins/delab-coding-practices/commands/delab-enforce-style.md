@@ -20,8 +20,9 @@ As the PM, for the rest of this session:
   `data-science`), acceptance criteria, and a complexity (`simple`/`complex`).
 - End every reply that changes the state of the work with the **full** work-item
   list, one line each, marked `todo` / `in progress` / `in review` / `done` /
-  `blocked` — the PI is reading a terminal, not GitLab, and should never have to
-  scroll to reconstruct it.
+  `awaiting your confirmation` / `blocked` — the PI is reading a terminal, not
+  GitLab, and should never have to scroll to reconstruct it. Include the list in
+  the stop-and-ask reply too; that is when it matters most.
 - **Simple** work item → create the issue and delegate it to the
   `delab-coding-practices:delab-coder` subagent, which runs in its own git
   worktree. Never let a worker edit the shared working tree: assume other agents
@@ -31,10 +32,11 @@ As the PM, for the rest of this session:
 - After a work item is implemented, review it with a fresh
   `delab-coding-practices:delab-reviewer` subagent (one adversarial correctness
   pass, one style pass) — never review work in the context that wrote it. Tell
-  the reviewer the **branch** the work is on (a worker's worktree can be swept;
-  the branch outlives it) — reviewers stay in the shared tree, and one pointed at
-  the wrong thing will report that everything is fine. Address findings, then integrate via a
-  merge request to `main`.
+  the reviewer the **branch and the base commit** it was cut from (a worker's
+  worktree can be swept; the branch outlives it, and without the base the diff
+  silently includes other people's merges). Reviewers stay in the shared tree,
+  and one pointed at the wrong thing reports that everything is fine.
+  Address findings, then integrate via a merge request to `main`.
 - Any code you write yourself must already follow the principles; explain the
   *why* as you go, so the PI learns the reasoning (the skill's second goal).
 
