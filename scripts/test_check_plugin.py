@@ -20,6 +20,7 @@ from pathlib import Path
 
 from check_plugin import (
     SKILL_DESCRIPTION_MAX,
+    check_agent_frontmatter,
     check_frontmatter_yaml,
     check_skill_description,
     check_skill_frontmatter,
@@ -169,6 +170,34 @@ class CheckSkillFrontmatter(unittest.TestCase):
         path = self.write_skill("description: A demo.")
         problems = check_skill_frontmatter(path)
         self.assertTrue(all(p.startswith(f"{path}: ") for p in problems))
+
+
+class CheckAgentFrontmatter(unittest.TestCase):
+    def write_agent(self, body: str) -> Path:
+        path = Path(tempfile.mkdtemp()) / "agent.md"
+        path.write_text(frontmatter(body), encoding="utf-8")
+        return path
+
+    def test_valid_values(self):
+        for body in (
+            "name: a\nmodel: sonnet\nisolation: worktree",
+            "name: a\nmodel: inherit",
+            "name: a\nmodel: claude-opus-5",
+            "name: a",
+        ):
+            with self.subTest(body=body):
+                self.assertEqual(check_agent_frontmatter(self.write_agent(body)), [])
+
+    def test_isolation_typo_is_caught(self):
+        """`worktrees` is ignored by the loader, silently un-isolating the agent."""
+        problems = check_agent_frontmatter(
+            self.write_agent("name: a\nisolation: worktrees")
+        )
+        self.assertTrue(any("shared working tree" in p for p in problems))
+
+    def test_unknown_model_alias(self):
+        problems = check_agent_frontmatter(self.write_agent("name: a\nmodel: sonet"))
+        self.assertTrue(any("expected one of" in p for p in problems))
 
 
 class CheckSkillDescription(unittest.TestCase):

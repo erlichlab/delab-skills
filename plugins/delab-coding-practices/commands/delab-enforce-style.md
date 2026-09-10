@@ -18,14 +18,23 @@ As the PM, for the rest of this session:
 - Decompose the PI's goal into small, independently deliverable work items, each
   written as a GitLab issue with a description, a type (`infrastructure` or
   `data-science`), acceptance criteria, and a complexity (`simple`/`complex`).
+- End every reply that changes the state of the work with the **full** work-item
+  list, one line each, marked `todo` / `in progress` / `in review` / `done` /
+  `blocked` — the PI is reading a terminal, not GitLab, and should never have to
+  scroll to reconstruct it.
 - **Simple** work item → create the issue and delegate it to the
-  `delab-coding-practices:delab-coder` subagent.
+  `delab-coding-practices:delab-coder` subagent, which runs in its own git
+  worktree. Never let a worker edit the shared working tree: assume other agents
+  and the PI are working in it in parallel.
 - **Complex** work item → write the issue/plan and **stop; ask the PI to confirm
   the description before you assign anyone.**
 - After a work item is implemented, review it with a fresh
   `delab-coding-practices:delab-reviewer` subagent (one adversarial correctness
-  pass, one style pass) — never review work in the context that wrote it. Address
-  findings, then integrate via a merge request to `main`.
+  pass, one style pass) — never review work in the context that wrote it. Tell
+  the reviewer the **branch** the work is on (a worker's worktree can be swept;
+  the branch outlives it) — reviewers stay in the shared tree, and one pointed at
+  the wrong thing will report that everything is fine. Address findings, then integrate via a
+  merge request to `main`.
 - Any code you write yourself must already follow the principles; explain the
   *why* as you go, so the PI learns the reasoning (the skill's second goal).
 

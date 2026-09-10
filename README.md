@@ -60,10 +60,29 @@ plugin claims that name.
 The plugin ships two subagents with the principles **preloaded**, so the PM
 delegates to them without hand-wiring the standards each time:
 
-- **`delab-coder`** — implements one work item following the principles (TDD for
-  infrastructure, synthetic-data-first for analysis pipelines).
-- **`delab-reviewer`** — a fresh, **read-only**, adversarial reviewer that checks
-  correctness and conformance to the principles, citing principle numbers.
+| Agent | Role | Model | Isolation |
+| --- | --- | --- | --- |
+| **`delab-coder`** | Implements one work item (TDD for infrastructure, synthetic-data-first for analysis) | `sonnet` | own git worktree |
+| **`delab-reviewer`** | Fresh, **read-only**, adversarial correctness and style review, citing principle numbers | inherits yours | shared tree |
+
+Workers get their own worktree so several can run at once without fighting over
+the branch your working tree has checked out — assume the PI and other agents
+are editing in parallel. That worktree is branched from `origin/<default-branch>`,
+so a worker cannot see your uncommitted or unpushed work; push first if an item
+builds on it, and set `worktree.baseRef` to `head` if you want workers branching
+from your local HEAD instead.
+
+Reviewers deliberately stay in the shared tree, because a worktree would not
+contain the work under review. They have Bash, so "read-only" is a rule they
+follow rather than something the tooling enforces — `delab-reviewer` is told to
+read diffs and never check anything out.
+
+Capability goes where it pays: a scoped work item does not need the strongest
+model, adversarial review does. Note that `inherit` means your review is only as
+strong as the model you are running. To override the agents' own choices
+lab-wide, set `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` — plain
+`CLAUDE_CODE_SUBAGENT_MODEL` sets a default that an agent naming its own model
+ignores.
 
 ### Using the guidance outside Claude Code
 

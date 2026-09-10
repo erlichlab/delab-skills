@@ -41,6 +41,11 @@ BLOCK_SCALAR = re.compile(r"\A[>|][+-]?\d*\Z")
 SKILL_NAME = re.compile(r"\A[a-z0-9]+(?:-[a-z0-9]+)*\Z")
 SKILL_NAME_MAX = 64
 SKILL_DESCRIPTION_MAX = 1024
+# Subagent frontmatter values the loader accepts. A value outside these sets is
+# dropped silently: `isolation` becomes unset and the agent runs in the shared
+# working tree, which is the failure the field exists to prevent.
+AGENT_MODELS = {"sonnet", "opus", "haiku", "fable", "inherit"}
+AGENT_ISOLATION = {"worktree"}
 
 
 def load_json(path: Path) -> tuple[dict | None, list[str]]:
@@ -170,6 +175,8 @@ def check_plugin(plugin_dir: Path, expected_name: str) -> list[str]:
         for entry in sorted(plugin_dir.glob(pattern))
         if not frontmatter_field(entry, "description")
     ]
+    for agent in sorted(plugin_dir.glob("agents/*.md")):
+        problems += check_agent_frontmatter(agent)
     problems += check_manifest_paths(plugin_dir, manifest)
     problems += check_plugin_root_refs(plugin_dir)
     return problems
@@ -270,6 +277,33 @@ def check_skill_description(description: str | None) -> list[str]:
             f"the spec caps it at {SKILL_DESCRIPTION_MAX}"
         ]
     return []
+
+
+def check_agent_frontmatter(agent: Path) -> list[str]:
+    """An agent's `model` and `isolation` are values the loader will honour.
+
+    Both are narrow enums, and a value outside them is ignored rather than
+    rejected — `isolation: worktrees` leaves the agent in the shared tree with
+    no error anywhere, so a typo silently undoes the isolation.
+    """
+    fields = parse_frontmatter(agent.read_text(encoding="utf-8"))
+    problems = []
+    model = fields.get("model")
+    # A full model id (claude-sonnet-5) is also valid, so only flag a bare word
+    # that is not one of the aliases.
+    if model and "-" not in model and model.lower() not in AGENT_MODELS:
+        problems.append(
+            f"`model` is {model!r}; expected one of "
+            f"{', '.join(sorted(AGENT_MODELS))}, or a full model id"
+        )
+    isolation = fields.get("isolation")
+    if isolation and isolation not in AGENT_ISOLATION:
+        problems.append(
+            f"`isolation` is {isolation!r}; the loader accepts only "
+            f"{', '.join(sorted(AGENT_ISOLATION))} and ignores anything else, "
+            "leaving the agent in the shared working tree"
+        )
+    return [f"{agent}: {problem}" for problem in problems]
 
 
 def check_manifest_paths(plugin_dir: Path, manifest: dict) -> list[str]:

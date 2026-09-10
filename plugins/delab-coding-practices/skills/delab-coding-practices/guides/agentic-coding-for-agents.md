@@ -19,6 +19,14 @@ Three roles, each a concrete agent:
 One agent plays one role at a time, and the reviewer must never be the worker that
 wrote the code — which is why it's a separate, fresh subagent.
 
+The rules below are stated as intent, because this guide is read by agents other
+than Claude Code and each one spells the mechanism differently. In Claude Code
+the bundled agents already encode them: `delab-coder` carries `model: sonnet`
+and `isolation: worktree`, `delab-reviewer` carries `model: inherit`. Codex sets
+the same things under `[agents]` in `config.toml` or in the agent file; Copilot
+uses `model:` in a `.chatmode.md`. Check your own agent's documentation for the
+spelling — the intent is what matters.
+
 ---
 
 ## As the project-manager (PM) agent
@@ -43,9 +51,41 @@ agents (and reviews) do better on a tight scope.
   the user to confirm the description before you assign anyone.** Do not begin
   complex work on an unconfirmed plan.
 
+**Keep the worklist visible — this is a hard rule.** The issues are the durable
+record, but the PI is reading a terminal, not GitLab. End every reply that
+changes the state of the work with the full list of items, one line each, marked
+`todo` / `in progress` / `in review` / `done` / `blocked`. Not a summary of what
+you just did — the whole list, every time, so the PI never has to reconstruct it
+by scrolling.
+
 **Delegate** one `delab-coding-practices:delab-coder` subagent per issue. It has
 the principles preloaded; give it the issue, the relevant files only, and (if not
 obvious) the dev method for its type. Keep its scope to that single issue.
+
+**One worker, one checkout.** Give each worker its own checkout of the repo,
+never the shared working tree. Assume the PI and other agents are working in
+parallel: an agent that checks out a branch or edits a file in the shared tree
+corrupts whatever the others are part-way through, and the damage surfaces later
+as changes nobody can account for. This is what makes it safe to run several
+workers at once — do so when work items are genuinely independent, and keep the
+fan-out small enough that you can review what comes back.
+
+An isolated checkout is branched from the **remote** default branch, not from
+the PI's local state. So a worker cannot see uncommitted work, or local commits
+that have not been pushed. If a work item builds on something unmerged, push it
+first and tell the worker the branch.
+
+**Reviewers stay in the shared tree** — an isolated checkout would not contain
+the work under review. A reviewer must therefore treat that tree as someone
+else's: read the diff, never check anything out. Tell each reviewer where the
+work is — branch, worktree path, or uncommitted in the shared tree — or it will
+review the wrong thing and report that everything is fine.
+
+**Spend model capability where it pays.** Run workers on a cheaper model than
+reviewers. A scoped work item with written acceptance criteria does not need the
+strongest model; adversarial review does, because it is the step that stops a
+wrong result reaching a figure. Escalate a specific worker when an item turns
+out to be genuinely hard.
 
 **Orchestrate review.** When the worker reports done, spawn a fresh
 `delab-coding-practices:delab-reviewer` (never the author) — once for an
@@ -82,8 +122,11 @@ Pick the dev method from the issue's **type**:
   from a discovery.
 
 Work in small commits with clear messages (principle 10) on the issue's branch
-(principle 12). When done, report what you built, what you tested, and anything
-left unresolved.
+(principle 12), inside your own worktree. Never edit, check out, or commit in the
+shared working tree — other agents and the PI are using it, and you cannot see
+what they are part-way through. When done, report what you built, what you
+tested, anything left unresolved, and **where your work is**: the worktree path
+and the branch, so a reviewer can find it.
 
 **Stay in your sandbox.** Operate only within the repos assigned to you. Do not
 read or write outside them, do not touch real data or secrets beyond what the
@@ -102,6 +145,11 @@ reports).*
 
 You did **not** write this code. Be adversarial — your job is to find what's
 wrong, not to approve.
+
+Check you are looking at the right thing before you start. The work may be on a
+branch, in a worker's worktree, or uncommitted in the shared tree; if you were
+not told which, ask rather than guess. A review of the wrong tree reports that
+nothing is wrong, which is worse than no review at all.
 
 - **Correctness review:** hunt for bugs, wrong math or statistics, unhandled edge
   cases, and silent failures (principle 9). For data science, verify ground-truth
