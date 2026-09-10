@@ -69,8 +69,11 @@ Workers get their own worktree so several can run at once without fighting over
 the branch your working tree has checked out — assume the PI and other agents
 are editing in parallel. That worktree is branched from `origin/<default-branch>`,
 so a worker cannot see your uncommitted or unpushed work; push first if an item
-builds on it, or set `worktree.baseRef` to `head` in `.claude/settings.json` if you want
-workers branching from your local HEAD instead.
+builds on it, or set `worktree.baseRef` to `head` if you want workers
+branching from your local HEAD instead — that one is a *user* setting, so each person sets it for
+themselves rather than the lab committing it. Worktree isolation needs a git
+repo; without one the worker refuses to start rather than quietly sharing your
+tree.
 
 Reviewers deliberately stay in the shared tree, because a worktree would not
 contain the work under review. They have no Write or Edit tools but they do have
@@ -78,8 +81,12 @@ Bash, so leaving your tree alone is a rule `delab-reviewer` is given, not one it
 tools enforce: it is told to read diffs and never check anything out.
 
 Capability goes where it pays: a scoped work item does not need the strongest
-model, adversarial review does. Note that `inherit` means your review is only as
-strong as the model you are running. To override the agents' own choices
+model, adversarial review does. Two caveats. `inherit` means your review is only
+as strong as the model you are running. And both settings are a request, not a
+guarantee — if the named model isn't available to your account, Claude Code
+substitutes the nearest one in the family, or falls back to the parent's, and
+tells you nothing. Check which model a review actually ran on before trusting a
+clean bill of health on anything headed for a paper. To override the agents' own choices
 lab-wide, set `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` — plain
 `CLAUDE_CODE_SUBAGENT_MODEL` sets a default that an agent naming its own model
 ignores.

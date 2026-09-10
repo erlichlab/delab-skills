@@ -190,7 +190,11 @@ Scope cheat-sheet (GitLab):
   review, not on typing: review is what catches a wrong number before it reaches
   a figure. **Your review is only as strong as the model you are running** — if
   you drop your own session to a small model to save tokens, you have quietly
-  weakened the check, not just the typing. Watch token spend on large fan-outs.
+  weakened the check, not just the typing. Naming a model is also a request
+  rather than a guarantee: if it is not available to your account the harness
+  quietly substitutes a near one, so confirm what a review actually ran on
+  before you trust it on anything headed for a paper. Watch token spend on
+  large fan-outs.
   To override the agents' own model choices lab-wide, set
   `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` — plain `CLAUDE_CODE_SUBAGENT_MODEL` only
   sets a default, which an agent that names its own model ignores.
