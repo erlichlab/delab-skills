@@ -1,7 +1,12 @@
 # The plugin layout is a contract: JSON that must parse, paths the loader must
 # find, and links a reader must be able to follow. None of it is exercised until
 # someone runs /plugin install, so check it on every push instead.
+#
+# The checker runs against this repo's own valid tree, so it only proves the
+# tree is good — a checker that wrongly accepts bad input passes too. The unit
+# tests supply the invalid inputs this repo does not contain.
 check:
   image: python:3.12-slim
   script:
+    - python3 -m unittest discover -s scripts -p 'test_*.py'
     - python3 scripts/check_plugin.py
