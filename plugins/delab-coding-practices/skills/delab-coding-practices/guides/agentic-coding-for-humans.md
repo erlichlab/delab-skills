@@ -55,6 +55,10 @@ PM decomposes into small work items, each written as a GitLab issue
 3. **Own correctness.** Reviewers help, but a plausible-looking analysis can still
    be wrong — sign off yourself on anything headed for a paper, and verify by
    *running* it, not just reading the diff.
+4. **Watch the worklist, not the transcript.** The PM keeps a checklist of work
+   items in its replies. That is the thing to read: it tells you what is in
+   flight and what is waiting on you, without scrolling back through everything
+   the agents did.
 
 ## Why issue-driven development
 
@@ -162,6 +166,13 @@ Scope cheat-sheet (GitLab):
 - **Skipping synthetic-data tests** on an analysis — then you have no answer key.
 - **One agent writing and reviewing** its own work.
 - **Long-lived branches** that drift from `main` (principle 12).
+- **Letting agents share your working tree.** Workers get their own checkout so
+  several can run at once, and so none of them checks out a branch while you are
+  mid-edit. Two things to know: a worker's checkout comes from the *remote*
+  default branch, so it cannot see your uncommitted or unpushed work — push
+  first if an item builds on it. And reviewers deliberately stay in your tree,
+  so they are the ones to watch: a reviewer is told to read diffs and never
+  check anything out.
 
 ## Tooling notes
 
@@ -171,7 +182,15 @@ Scope cheat-sheet (GitLab):
   **`/delab-workflow`** to put this workflow in front of an agent that is working
   the wrong way without handing it the PM role. It then
   delegates work to the bundled **`delab-coder`** subagent and reviews with the
-  bundled **`delab-reviewer`** subagent (read-only), both shipped with this plugin
+  bundled **`delab-reviewer`** subagent (which reports, never fixes), both
+  shipped with this plugin
   with the principles preloaded — so you don't hand-wire the standards each time.
-- **Model & cost:** use a stronger model for planning/review and a cheaper one for
-  mechanical work; watch token spend on large fan-outs.
+- **Model & cost:** the bundled agents already do this — `delab-coder` runs on
+  Sonnet, `delab-reviewer` matches your session's model. Spend the capability on
+  review, not on typing: review is what catches a wrong number before it reaches
+  a figure. **Your review is only as strong as the model you are running** — if
+  you drop your own session to a small model to save tokens, you have quietly
+  weakened the check, not just the typing. Watch token spend on large fan-outs.
+  To override the agents' own model choices lab-wide, set
+  `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` — plain `CLAUDE_CODE_SUBAGENT_MODEL` only
+  sets a default, which an agent that names its own model ignores.

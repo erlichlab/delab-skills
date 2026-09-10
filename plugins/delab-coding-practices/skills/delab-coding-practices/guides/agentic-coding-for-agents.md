@@ -14,10 +14,19 @@ Three roles, each a concrete agent:
 - **worker** — the bundled `delab-coding-practices:delab-coder` subagent (the
   principles are preloaded into it).
 - **reviewer** — the bundled `delab-coding-practices:delab-reviewer` subagent
-  (fresh, adversarial, read-only).
+  (fresh and adversarial; it reports, it never fixes).
 
 One agent plays one role at a time, and the reviewer must never be the worker that
 wrote the code — which is why it's a separate, fresh subagent.
+
+The rules below are stated as intent, because this guide is read by agents
+other than Claude Code and each spells the mechanism differently. In Claude
+Code the bundled `delab-coder` and `delab-reviewer` agents encode them
+directly. Elsewhere you arrange them yourself: per-agent model choice exists
+in Codex (under `[agents]` in `config.toml`) and in Copilot (`model:` in a
+`.chatmode.md`), while an isolated checkout may have no built-in equivalent at
+all — there, give each worker its own clone or worktree by hand. Check your
+agent's own documentation; the intent is what has to survive, not the spelling.
 
 ---
 
@@ -43,9 +52,46 @@ agents (and reviews) do better on a tight scope.
   the user to confirm the description before you assign anyone.** Do not begin
   complex work on an unconfirmed plan.
 
+**Keep the worklist visible — this is a hard rule.** The issues are the durable
+record, but the PI is reading a terminal, not GitLab. End every reply that
+changes the state of the work with the full list of items, one line each, marked
+`todo` / `in progress` / `in review` / `done` / `awaiting your confirmation` /
+`blocked`. Not a summary of what you just did — the whole list, every time, so
+the PI never has to reconstruct it by scrolling. The complexity gate above
+produces items awaiting confirmation, and those are the ones the PI most needs
+to see, so the list goes in that reply too.
+
 **Delegate** one `delab-coding-practices:delab-coder` subagent per issue. It has
 the principles preloaded; give it the issue, the relevant files only, and (if not
 obvious) the dev method for its type. Keep its scope to that single issue.
+
+**One worker, one checkout.** Give each worker its own checkout of the repo,
+never the shared working tree. Assume the PI and other agents are working in
+parallel: an agent that checks out a branch or edits a file in the shared tree
+corrupts whatever the others are part-way through, and the damage surfaces later
+as changes nobody can account for. This is what makes it safe to run several
+workers at once — do so when work items are genuinely independent, and keep the
+fan-out small enough that you can review what comes back.
+
+An isolated checkout is branched from the **remote** default branch, not from
+the PI's local state. So a worker cannot see uncommitted work, or local commits
+that have not been pushed. If a work item builds on something unmerged, push it
+first and tell the worker the branch.
+
+**Reviewers stay in the shared tree** — an isolated checkout would not contain
+the work under review. A reviewer must therefore treat that tree as someone
+else's: read the diff, never check anything out. Tell each reviewer where the
+work is **and what to diff it against** — the branch plus the base it was cut
+from. A branch alone is not enough: diffed against a stale local default branch
+it silently includes everyone else's merges, and the reviewer reports on work
+nobody asked about. Otherwise it reviews the wrong thing and reports that
+everything is fine.
+
+**Spend model capability where it pays.** Run workers on a cheaper model than
+reviewers. A scoped work item with written acceptance criteria does not need the
+strongest model; adversarial review does, because it is the step that stops a
+wrong result reaching a figure. Escalate a specific worker when an item turns
+out to be genuinely hard.
 
 **Orchestrate review.** When the worker reports done, spawn a fresh
 `delab-coding-practices:delab-reviewer` (never the author) — once for an
@@ -82,8 +128,11 @@ Pick the dev method from the issue's **type**:
   from a discovery.
 
 Work in small commits with clear messages (principle 10) on the issue's branch
-(principle 12). When done, report what you built, what you tested, and anything
-left unresolved.
+(principle 12), inside your own worktree. Never edit, check out, or commit in the
+shared working tree — other agents and the PI are using it, and you cannot see
+what they are part-way through. When done, report what you built, what you
+tested, anything left unresolved, and **where your work is**: the worktree path
+and the branch, so a reviewer can find it.
 
 **Stay in your sandbox.** Operate only within the repos assigned to you. Do not
 read or write outside them, do not touch real data or secrets beyond what the
@@ -96,12 +145,19 @@ it, and act only on the project it is scoped to.
 
 ## As a reviewer subagent
 
-*This role is the bundled `delab-coding-practices:delab-reviewer` agent — fresh,
-adversarial, and read-only (it has no Write/Edit tools, so it cannot fix; it
-reports).*
+*This role is the bundled `delab-coding-practices:delab-reviewer` agent — fresh
+and adversarial. It has no Write or Edit tools, but it does have Bash, so
+leaving the shared tree untouched is a rule it is given, not something its tools
+guarantee.*
 
 You did **not** write this code. Be adversarial — your job is to find what's
 wrong, not to approve.
+
+Check you are looking at the right thing before you start. The work may be on a
+branch, in a worker's worktree, or uncommitted in the shared tree; if you were
+not told which, return and say what you need — a subagent has no channel to
+ask, so guessing is the only alternative and it is the wrong one. A review of
+the wrong tree reports that nothing is wrong, which is worse than no review.
 
 - **Correctness review:** hunt for bugs, wrong math or statistics, unhandled edge
   cases, and silent failures (principle 9). For data science, verify ground-truth

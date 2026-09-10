@@ -20,6 +20,8 @@ from pathlib import Path
 
 from check_plugin import (
     SKILL_DESCRIPTION_MAX,
+    check_agent_frontmatter,
+    check_agent_isolation,
     check_frontmatter_yaml,
     check_skill_description,
     check_skill_frontmatter,
@@ -169,6 +171,72 @@ class CheckSkillFrontmatter(unittest.TestCase):
         path = self.write_skill("description: A demo.")
         problems = check_skill_frontmatter(path)
         self.assertTrue(all(p.startswith(f"{path}: ") for p in problems))
+
+
+class CheckAgentFrontmatter(unittest.TestCase):
+    def write_agent(self, body: str) -> Path:
+        path = Path(tempfile.mkdtemp()) / "agent.md"
+        path.write_text(frontmatter(body), encoding="utf-8")
+        return path
+
+    def check(self, body: str) -> list[str]:
+        return check_agent_frontmatter(self.write_agent(body))
+
+    def test_valid_values(self):
+        writer = "tools:\n  - Write\nisolation: worktree\n"
+        for body in (
+            f"name: a\nmodel: sonnet\n{writer}",
+            f"name: a\nmodel: claude-opus-5\n{writer}",
+            f"name: a\nmodel: opus[1m]\n{writer}",
+            "name: a\nmodel: inherit",
+        ):
+            with self.subTest(body=body):
+                self.assertEqual(self.check(body), [])
+
+    def test_isolation_typo_is_caught(self):
+        """`worktrees` is ignored by the loader, silently un-isolating the agent."""
+        problems = self.check("name: a\ntools:\n  - Write\nisolation: worktrees")
+        self.assertTrue(any("shared working tree" in p for p in problems))
+
+    def test_unknown_model_alias(self):
+        self.assertTrue(any("expected one of" in p for p in self.check("name: a\nmodel: sonet")))
+
+    def test_wrong_case_is_rejected(self):
+        """YAML is case-sensitive; a mis-cased value risks being dropped."""
+        for body in ("name: a\nmodel: Sonnet", "name: a\ntools:\n  - Write\nisolation: Worktree"):
+            with self.subTest(body=body):
+                self.assertTrue(self.check(body))
+
+    def test_empty_value_is_not_silently_accepted(self):
+        self.assertTrue(any("empty" in p for p in self.check("name: a\nmodel:")))
+
+    def test_inline_comment_does_not_trip_the_check(self):
+        body = "name: a\nmodel: sonnet # cheap\ntools:\n  - Write\nisolation: worktree # own tree"
+        self.assertEqual(self.check(body), [])
+
+    def test_problems_are_prefixed_with_the_path(self):
+        path = self.write_agent("name: a\nmodel: sonet")
+        self.assertTrue(all(p.startswith(f"{path}: ") for p in check_agent_frontmatter(path)))
+
+
+class CheckAgentIsolation(unittest.TestCase):
+    """The invariant the design rests on, which a spelling check cannot see."""
+
+    def test_writer_without_isolation(self):
+        problems = check_agent_isolation({"tools": "- Read - Write - Edit"})
+        self.assertTrue(any("shared working tree" in p for p in problems))
+
+    def test_reader_with_isolation(self):
+        problems = check_agent_isolation(
+            {"tools": "- Read - Grep", "isolation": "worktree"}
+        )
+        self.assertTrue(any("cannot see the work" in p for p in problems))
+
+    def test_correct_pairings(self):
+        self.assertEqual(
+            check_agent_isolation({"tools": "- Read - Write", "isolation": "worktree"}), []
+        )
+        self.assertEqual(check_agent_isolation({"tools": "- Read - Grep"}), [])
 
 
 class CheckSkillDescription(unittest.TestCase):

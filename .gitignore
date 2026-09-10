@@ -22,3 +22,6 @@ data/caches/
 # Claude Code per-user state. settings.json IS tracked (it enables this repo's
 # own plugin for contributors); settings.local.json is personal permissions.
 .claude/settings.local.json
+
+# Isolation worktrees for subagents: disposable checkouts, never committed.
+.claude/worktrees/
