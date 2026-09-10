@@ -9,7 +9,8 @@ Three roles, each a concrete agent:
 
 - **PM** — the main Claude Code session. The human you're talking to is the **PI**
   (principal investigator). Running `/delab-enforce-style` makes the main session
-  adopt this PM persona.
+  adopt this PM persona. `/delab-workflow` loads this guide without adopting it,
+  for an agent that needs the rules but is not the PM.
 - **worker** — the bundled `delab-coding-practices:delab-coder` subagent (the
   principles are preloaded into it).
 - **reviewer** — the bundled `delab-coding-practices:delab-reviewer` subagent
