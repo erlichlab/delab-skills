@@ -46,13 +46,14 @@ SKILL_DESCRIPTION_MAX = 1024
 # working tree, which is the failure the field exists to prevent. YAML scalars
 # are case-sensitive, so these are matched exactly rather than case-folded.
 AGENT_MODELS = {"sonnet", "opus", "haiku", "fable", "inherit"}
-AGENT_ISOLATION = {"worktree"}
+AGENT_ISOLATION = {"worktree", "remote"}
 # A full model id, e.g. `claude-opus-5`.
 AGENT_MODEL_ID = re.compile(r"\A[a-z0-9]+(?:-[a-z0-9.]+)+\Z")
 # A variant suffix an alias or id may carry, e.g. `opus[1m]`.
 AGENT_MODEL_VARIANT = re.compile(r"\[[^\]]+\]\Z")
 # Tools that let an agent change files. One that has any of them must be
-# isolated; one that has none must not be — see check_agent_isolation.
+# isolated; one that has none must not be — see check_agent_isolation. Either
+# isolation mode counts: neither leaves the agent in the shared checkout.
 WRITING_TOOLS = {"Write", "Edit", "NotebookEdit"}
 
 
@@ -334,9 +335,9 @@ def check_agent_frontmatter(agent: Path) -> list[str]:
             )
         elif isolation not in AGENT_ISOLATION:
             problems.append(
-                f"`isolation` is {isolation!r}; the loader accepts only "
-                f"{', '.join(sorted(AGENT_ISOLATION))} (lowercase) and ignores "
-                "anything else, leaving the agent in the shared working tree"
+                f"`isolation` is {isolation!r}; expected one of "
+                f"{', '.join(sorted(AGENT_ISOLATION))} (lowercase). Anything "
+                "else is ignored, leaving the agent in the shared working tree"
             )
 
     problems += check_agent_isolation(fields)
@@ -346,11 +347,11 @@ def check_agent_frontmatter(agent: Path) -> list[str]:
 def check_agent_isolation(fields: dict) -> list[str]:
     """Isolation matches what the agent can do, which is what the design rests on.
 
-    An agent that can write must have its own checkout, or parallel agents
-    corrupt each other's work in the shared tree. An agent that cannot write
-    must NOT have one: an isolated checkout comes from the remote default
-    branch, so a reviewer inside one would not contain the work under review
-    and would report that nothing is wrong.
+    An agent that can write must be isolated, or parallel agents corrupt each
+    other's work in the shared tree. An agent that cannot write must not be: an
+    isolated checkout comes from the remote default branch (and a remote one
+    from another machine entirely), so a reviewer inside one would not hold the
+    work under review and would report that nothing is wrong.
 
     Checking the values are spelled right is not enough — dropping the key
     entirely is the likelier way to lose either property, and spells no typo.

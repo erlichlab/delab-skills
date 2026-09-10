@@ -193,6 +193,11 @@ class CheckAgentFrontmatter(unittest.TestCase):
             with self.subTest(body=body):
                 self.assertEqual(self.check(body), [])
 
+    def test_remote_isolation_is_valid(self):
+        """`remote` is the other isolation mode the loader accepts."""
+        body = "name: a\ntools:\n  - Write\nisolation: remote"
+        self.assertEqual(self.check(body), [])
+
     def test_isolation_typo_is_caught(self):
         """`worktrees` is ignored by the loader, silently un-isolating the agent."""
         problems = self.check("name: a\ntools:\n  - Write\nisolation: worktrees")
@@ -231,6 +236,13 @@ class CheckAgentIsolation(unittest.TestCase):
             {"tools": "- Read - Grep", "isolation": "worktree"}
         )
         self.assertTrue(any("cannot see the work" in p for p in problems))
+
+    def test_remote_counts_as_isolated(self):
+        """Neither mode leaves the agent in the shared checkout."""
+        self.assertEqual(
+            check_agent_isolation({"tools": "- Write", "isolation": "remote"}), []
+        )
+        self.assertTrue(check_agent_isolation({"tools": "- Read", "isolation": "remote"}))
 
     def test_correct_pairings(self):
         self.assertEqual(
