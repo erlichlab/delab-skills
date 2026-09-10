@@ -39,9 +39,10 @@ examples live in the per-language files; when you know the language, read it:
 Apply these by default. They are strong defaults, not laws — if a principle
 genuinely doesn't fit, say why in a comment rather than silently ignoring it.
 
-How the lab *organizes* work — the roles an agent plays, issue-driven
-development, and why reviews are done by a fresh agent — is in `guides/`, not
-here: [`guides/agentic-coding-for-agents.md`](guides/agentic-coding-for-agents.md).
+How the lab *organizes* work is not here — two separate skills cover it. Load
+whichever matches how you are working: **`delab-interactive-workflow`** when a
+person is coding with an agent helping, **`delab-agentic-workflow`** when agents
+are orchestrating each other through issues, branches and reviews.
 
 ---
 
@@ -226,7 +227,7 @@ unrelated changes.
 Commit messages follow principle 10 (explain the present, not the history), and
 `.gitignore` keeps generated cruft out of the repo (principle 7). For the
 practical GitLab setup — deleting merged branches automatically, and a backstop
-for catching drifting branches — see `guides/gitlab-workflow.md`.
+for catching drifting branches — see [`gitlab-workflow.md`](gitlab-workflow.md).
 
 ---
 
@@ -236,10 +237,10 @@ When asked to write or refactor lab code:
 
 1. Read this file for the principles.
 2. Read the matching `languages/<lang>.md` for idioms and the exact tooling.
-3. If you have been given one of the workflow roles (PM, worker, reviewer), or
-   you are about to delegate work to a subagent, read
-   [`guides/agentic-coding-for-agents.md`](guides/agentic-coding-for-agents.md)
-   first — it decides how work is split up and who is allowed to review it.
+3. Load the workflow skill for how you are working — `delab-interactive-workflow`
+   when a person is driving in an IDE, `delab-agentic-workflow` when you have
+   been given a PM, worker or reviewer role or are about to delegate to a
+   subagent. It decides how work is split up and who is allowed to review it.
 4. Produce code that already follows these defaults — don't write the "before"
    version and wait to be corrected.
 5. Explain the *why* as you go, so the person learns the advantage rather than

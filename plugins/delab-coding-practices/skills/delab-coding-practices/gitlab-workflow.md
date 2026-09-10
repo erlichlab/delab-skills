@@ -2,7 +2,7 @@
 
 The lab uses **GitLab** by default (a few projects live on GitHub; the flow is the
 same). This guide is the practical companion to
-[principle 12](../SKILL.md#12-work-in-short-lived-feature-specific-branches) —
+[principle 12](SKILL.md#12-work-in-short-lived-feature-specific-branches) —
 *work in short-lived, feature-specific branches*.
 
 ## Keep branches short-lived
@@ -37,7 +37,7 @@ beats discovering them at publication crunch time.
 
 A branch that is ahead of `main` and has zero MRs is drifting: open an MR for it,
 or delete it if it's abandoned. This is a natural periodic task for the
-project-manager agent (see the [agentic-coding guides](agentic-coding-for-agents.md)).
+project-manager agent (see the `delab-agentic-workflow` skill).
 
 ## The normal loop
 

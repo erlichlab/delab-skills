@@ -22,6 +22,7 @@ from check_plugin import (
     SKILL_DESCRIPTION_MAX,
     check_agent_frontmatter,
     check_agent_isolation,
+    check_command_mentions,
     check_frontmatter_yaml,
     check_skill_description,
     check_skill_frontmatter,
@@ -249,6 +250,49 @@ class CheckAgentIsolation(unittest.TestCase):
             check_agent_isolation({"tools": "- Read - Write", "isolation": "worktree"}), []
         )
         self.assertEqual(check_agent_isolation({"tools": "- Read - Grep"}), [])
+
+
+class CheckCommandMentions(unittest.TestCase):
+    """A `/delab-…` in prose is invisible to the link checker, so check it here."""
+
+    def build(self, doc: str, commands=(), skills=()) -> tuple[Path, set[str]]:
+        root = Path(tempfile.mkdtemp())
+        (root / "doc.md").write_text(doc, encoding="utf-8")
+        return root, set(commands) | set(skills)
+
+    def test_existing_command_and_skill_pass(self):
+        root, names = self.build(
+            "Run `/delab-review` or `/delab-coding-practices:delab-agentic-workflow`.",
+            commands=["delab-review"],
+            skills=["delab-agentic-workflow"],
+        )
+        self.assertEqual(check_command_mentions(root, names), [])
+
+    def test_deleted_command_is_caught(self):
+        root, names = self.build("Run `/delab-enforce-style`.", commands=["delab-review"])
+        self.assertTrue(any("delab-enforce-style" in p for p in check_command_mentions(root, names)))
+
+    def test_bare_slash_mention_without_backticks(self):
+        root, names = self.build("Just run /delab-gone to start.", commands=["delab-review"])
+        self.assertTrue(any("delab-gone" in p for p in check_command_mentions(root, names)))
+
+    def test_renamed_skill_referred_to_by_bare_name(self):
+        """The form skills use for each other — the reason this check exists."""
+        root, names = self.build("See the `delab-practises` skill.", skills=["delab-practices"])
+        self.assertTrue(any("delab-practises" in p for p in check_command_mentions(root, names)))
+
+    def test_names_are_pooled_not_checked_per_plugin(self):
+        """A second plugin's commands must not make the first plugin's look missing."""
+        root, _ = self.build("`/delab-a` and `/delab-b`.")
+        self.assertEqual(check_command_mentions(root, {"delab-a", "delab-b"}), [])
+
+    def test_claude_directory_is_skipped(self):
+        """Subagent worktrees live there; they are not repo content."""
+        root, names = self.build("fine", commands=["delab-review"])
+        worktree = root / ".claude" / "worktrees" / "w"
+        worktree.mkdir(parents=True)
+        (worktree / "stale.md").write_text("`/delab-gone`", encoding="utf-8")
+        self.assertEqual(check_command_mentions(root, names), [])
 
 
 class CheckSkillDescription(unittest.TestCase):

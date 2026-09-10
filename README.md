@@ -1,7 +1,7 @@
 # delab skills
 
 Shared coding practices for the Erlich lab (delab), packaged as a **Claude Code
-plugin** (a skill plus a few slash commands) that you install from a
+plugin** (three skills plus a couple of slash commands) that you install from a
 marketplace. The goal is that research code across the lab — behavior/rig
 control, ephys and imaging analysis, modeling, and statistics — comes out
 **reproducible, readable, and fast enough**, and consistent from person to
@@ -23,8 +23,8 @@ In Claude Code, add this repo as a marketplace and install the plugin:
 ```
 
 The first line registers the `delab` marketplace; the second installs the
-`delab-coding-practices` plugin from it. Once installed, the skill loads
-automatically when you're writing or reviewing lab code, and you get four
+`delab-coding-practices` plugin from it. Once installed, the principles skill loads
+automatically when you're writing or reviewing lab code, and you get two
 commands and two orchestration agents (below).
 
 > **Where the repo lives.** Development happens on GitLab
@@ -34,21 +34,34 @@ commands and two orchestration agents (below).
 > GitLab. You can also add a marketplace straight from a local clone:
 > `/plugin marketplace add /path/to/delab-skills`.
 
+### Start a session with a workflow
+
+**These are the main entry points.** Pick the one that matches how you are
+working, at the *start* of the session — it decides how work gets split up,
+written down and reviewed:
+
+- **`/delab-coding-practices:delab-interactive-workflow`** — you are coding in
+  VS Code or another IDE and an agent is helping. Pair programming: no issue for
+  every change, no review subagent per commit, and the agent explains its
+  reasoning as it goes. The principles and language practices still apply in
+  full, and anything headed for a merge request still gets an adversarial review
+  first.
+- **`/delab-coding-practices:delab-agentic-workflow`** — agents are orchestrating
+  agents. A PM decomposes the goal into written work items, delegates each to a
+  worker in its own checkout, and has a fresh reviewer check the result. Work
+  items become GitLab or GitHub issues when a token is available, and files under
+  `docs/issues/` when it isn't.
+
+Both load the coding principles themselves, so you don't need to do it
+separately. If you start without either, the principles skill still activates on
+its own — you just don't get the workflow around them.
+
 ### Commands
 
-Plugin commands are namespaced by plugin, so these are the names that always
-work. The bare `/delab-review` form also works as long as no other installed
-plugin claims that name.
+Two actions you can run at any point, in either workflow. Commands are
+namespaced by plugin; the bare `/delab-review` form also works as long as no
+other installed plugin claims the name.
 
-- **`/delab-coding-practices:delab-workflow [role]`** — loads the agentic
-  workflow into context so the agent follows it in whatever role it's already
-  playing. Reach for this when an agent is working the wrong way — too big a
-  step, or reviewing its own code — and you want it to read the rules rather
-  than take over as PM. It informs; `delab-enforce-style` below takes charge.
-- **`/delab-coding-practices:delab-enforce-style [goal]`** — makes the main
-  session act as the delab **project manager**: it adopts the principles and the
-  agentic workflow, decomposing work into GitLab issues and delegating to the
-  agents below (gating complex plans on your confirmation).
 - **`/delab-coding-practices:delab-review [path]`** — reviews the current diff
   (or a given path) against the principles and reports violations with the
   principle number and a fix.
@@ -93,8 +106,8 @@ ignores.
 
 ### Using the guidance outside Claude Code
 
-The skill follows the [Agent Skills](https://agentskills.io/specification) open
-standard, so it isn't Claude-only. Codex, Gemini CLI, Cursor and Copilot all
+The skills follow the [Agent Skills](https://agentskills.io/specification) open
+standard, so they aren't Claude-only. Codex, Gemini CLI, Cursor and Copilot all
 discover skills from `.agents/skills/` — copy the skill directory there in your
 project, or into `~/.agents/skills/` to have it everywhere:
 
@@ -105,8 +118,9 @@ cp -r delab-skills/plugins/delab-coding-practices/skills/delab-coding-practices 
       ~/.agents/skills/
 ```
 
-Copy the **whole directory**, not just `SKILL.md`: `languages/` and `guides/`
-are loaded on demand. Each agent also has its own path (`.gemini/skills/`,
+Copy each skill directory you want — `delab-coding-practices` for the
+principles, plus a workflow skill — and the whole of each, not just `SKILL.md`:
+`languages/` and the workflow companions are loaded on demand. Each agent also has its own path (`.gemini/skills/`,
 `.cursor/skills/`, `.github/skills/`) and its own precedence rules — see your
 agent's docs if you need a per-project override. To update, `git pull` and copy
 again; `cp -r` merges, so delete the destination first if you want files removed
@@ -125,13 +139,11 @@ https://raw.githubusercontent.com/erlichlab/delab-skills/main/plugins/delab-codi
 ```
 
 The PM / worker / reviewer workflow does not travel as *machinery*: `delab-coder`
-and `delab-reviewer` are Claude Code subagents. The guides state the rules as
+and `delab-reviewer` are Claude Code subagents. These skills state the rules as
 intent, so another agent can be pointed at them and follow the same workflow by
-hand. Elsewhere it's text to read or paste
-—
-[`agentic-coding-for-agents.md`](plugins/delab-coding-practices/skills/delab-coding-practices/guides/agentic-coding-for-agents.md)
-and
-[`agentic-coding-for-humans.md`](plugins/delab-coding-practices/skills/delab-coding-practices/guides/agentic-coding-for-humans.md).
+hand — it's text to read or paste:
+[`delab-agentic-workflow`](plugins/delab-coding-practices/skills/delab-agentic-workflow/SKILL.md)
+and [`for-humans.md`](plugins/delab-coding-practices/skills/delab-agentic-workflow/for-humans.md).
 
 ## What's inside
 
@@ -149,19 +161,25 @@ supporting files are in
   branches.
 - **`languages/`** — per-language idioms and concrete *before → after*
   examples: `python.md`, `julia.md`, `matlab.md`, `r.md`.
-- **`guides/`** — how to *work with LLM agents* in the lab:
-  [`agentic-coding-for-humans.md`](plugins/delab-coding-practices/skills/delab-coding-practices/guides/agentic-coding-for-humans.md)
-  (you as PI: set goals, approve complex plans, own correctness) and
-  [`agentic-coding-for-agents.md`](plugins/delab-coding-practices/skills/delab-coding-practices/guides/agentic-coding-for-agents.md)
-  (instructions for the project-manager / worker / reviewer roles). Plus
-  [`gitlab-workflow.md`](plugins/delab-coding-practices/skills/delab-coding-practices/guides/gitlab-workflow.md)
-  — the practical GitLab branch/MR workflow behind principle 12.
+- **[`gitlab-workflow.md`](plugins/delab-coding-practices/skills/delab-coding-practices/gitlab-workflow.md)**
+  — the practical branch/MR setup behind principle 12, which both workflows use.
+
+The two workflow skills sit alongside it, and carry everything about *how work
+is organized* rather than how code is written:
+
+- **[`delab-agentic-workflow`](plugins/delab-coding-practices/skills/delab-agentic-workflow/SKILL.md)**
+  — the project-manager / worker / reviewer roles, work items written down
+  before they are built, and reviews done by a fresh agent. Its
+  [`for-humans.md`](plugins/delab-coding-practices/skills/delab-agentic-workflow/for-humans.md)
+  is the PI-facing companion (set goals, approve complex plans, own
+  correctness).
+- **[`delab-interactive-workflow`](plugins/delab-coding-practices/skills/delab-interactive-workflow/SKILL.md)**
+  — pair programming in an IDE: small steps, explain the reasoning, no issue
+  filing, review at the merge request rather than per commit.
 
 The assistant loads `SKILL.md` for the principles and the matching
-`languages/<lang>.md` file when it knows which language you're working in. The
-`guides/` describe the *workflow* around the agents — a PM agent decomposing work
-into GitLab issues, delegating to worker subagents, and gating complex plans on
-your confirmation.
+`languages/<lang>.md` when it knows which language you're working in, and
+whichever workflow skill matches how you're working.
 
 ## Repository layout
 
@@ -172,13 +190,16 @@ delab-skills/
 ├── plugins/
 │   └── delab-coding-practices/
 │       ├── .claude-plugin/plugin.json   # plugin manifest
-│       ├── commands/                    # delab-workflow, delab-enforce-style, delab-review, delab-refactor
+│       ├── commands/                    # delab-review, delab-refactor
 │       ├── agents/                      # delab-coder, delab-reviewer
 │       └── skills/
-│           └── delab-coding-practices/
-│               ├── SKILL.md
-│               ├── languages/
-│               └── guides/
+│           ├── delab-coding-practices/  # the principles
+│           │   ├── SKILL.md
+│           │   ├── gitlab-workflow.md
+│           │   └── languages/
+│           ├── delab-agentic-workflow/  # agents orchestrating agents
+│           └── delab-interactive-workflow/
+├── .gitlab/merge_request_templates/     # MR checklist, incl. the review record
 ├── scripts/check_plugin.py              # validates the layout above
 ├── .gitlab-ci.yml                       # runs it on every push
 ├── LICENSE
@@ -207,11 +228,11 @@ before opening a merge request.
 
 ## Status
 
-`v1.0`. All four language files (Python, Julia, MATLAB, R) are fleshed out,
-the repo is packaged as an installable plugin, the skill follows the Agent
-Skills standard so it travels to other agents, and the workflow guides are
-reachable from the skill itself. Feedback and contributions from the lab are
-welcome.
+`v2.0`. Coding practices and workflows are separate skills: pick a workflow at
+the start of a session, and the principles come with it. All four language
+files (Python, Julia, MATLAB, R) are fleshed out, and every skill follows the
+Agent Skills standard, so they travel to agents other than Claude Code.
+Feedback and contributions from the lab are welcome.
 
 Planned for a later version: a section on scaling analyses to the cluster
 (SLURM) — job arrays over sessions/subjects, resource requests, and how it
