@@ -167,7 +167,9 @@ Scope cheat-sheet (GitLab):
 
 - **Issues / branches / MRs:** GitLab by default (principle 12).
 - **Roles map to agents.** You (the PI) talk to the **PM** — the main Claude Code
-  session. Run **`/delab-enforce-style`** to make it adopt the PM persona. It then
+  session. Run **`/delab-enforce-style`** to make it adopt the PM persona, or
+  **`/delab-workflow`** to put this workflow in front of an agent that is working
+  the wrong way without handing it the PM role. It then
   delegates work to the bundled **`delab-coder`** subagent and reviews with the
   bundled **`delab-reviewer`** subagent (read-only), both shipped with this plugin
   with the principles preloaded — so you don't hand-wire the standards each time.

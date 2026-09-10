@@ -38,6 +38,10 @@ examples live in the per-language files; when you know the language, read it:
 Apply these by default. They are strong defaults, not laws — if a principle
 genuinely doesn't fit, say why in a comment rather than silently ignoring it.
 
+How the lab *organizes* work — the roles an agent plays, issue-driven
+development, and why reviews are done by a fresh agent — is in `guides/`, not
+here: [`guides/agentic-coding-for-agents.md`](guides/agentic-coding-for-agents.md).
+
 ---
 
 ## 1. Package & environment management
@@ -231,7 +235,11 @@ When asked to write or refactor lab code:
 
 1. Read this file for the principles.
 2. Read the matching `languages/<lang>.md` for idioms and the exact tooling.
-3. Produce code that already follows these defaults — don't write the "before"
+3. If you have been given one of the workflow roles (PM, worker, reviewer), or
+   you are about to delegate work to a subagent, read
+   [`guides/agentic-coding-for-agents.md`](guides/agentic-coding-for-agents.md)
+   first — it decides how work is split up and who is allowed to review it.
+4. Produce code that already follows these defaults — don't write the "before"
    version and wait to be corrected.
-4. Explain the *why* as you go, so the person learns the advantage rather than
+5. Explain the *why* as you go, so the person learns the advantage rather than
    just receiving a rule (see "Two goals" above).

@@ -1,7 +1,7 @@
 # delab skills
 
 Shared coding practices for the Erlich lab (delab), packaged as a **Claude Code
-plugin** (a skill plus a couple of slash commands) that you install from a
+plugin** (a skill plus a few slash commands) that you install from a
 marketplace. The goal is that research code across the lab — behavior/rig
 control, ephys and imaging analysis, modeling, and statistics — comes out
 **reproducible, readable, and fast enough**, and consistent from person to
@@ -24,7 +24,7 @@ In Claude Code, add this repo as a marketplace and install the plugin:
 
 The first line registers the `delab` marketplace; the second installs the
 `delab-coding-practices` plugin from it. Once installed, the skill loads
-automatically when you're writing or reviewing lab code, and you get three
+automatically when you're writing or reviewing lab code, and you get four
 commands and two orchestration agents (below).
 
 > **Where the repo lives.** Development happens on GitLab
@@ -40,6 +40,11 @@ Plugin commands are namespaced by plugin, so these are the names that always
 work. The bare `/delab-review` form also works as long as no other installed
 plugin claims that name.
 
+- **`/delab-coding-practices:delab-workflow [role]`** — loads the agentic
+  workflow into context so the agent follows it in whatever role it's already
+  playing. Reach for this when an agent is working the wrong way — too big a
+  step, or reviewing its own code — and you want it to read the rules rather
+  than take over as PM. It informs; `delab-enforce-style` below takes charge.
 - **`/delab-coding-practices:delab-enforce-style [goal]`** — makes the main
   session act as the delab **project manager**: it adopts the principles and the
   agentic workflow, decomposing work into GitLab issues and delegating to the
@@ -106,7 +111,7 @@ delab-skills/
 ├── plugins/
 │   └── delab-coding-practices/
 │       ├── .claude-plugin/plugin.json   # plugin manifest
-│       ├── commands/                    # delab-enforce-style, delab-review, delab-refactor
+│       ├── commands/                    # delab-workflow, delab-enforce-style, delab-review, delab-refactor
 │       ├── agents/                      # delab-coder, delab-reviewer
 │       └── skills/
 │           └── delab-coding-practices/
@@ -136,9 +141,10 @@ push. Run it before opening a merge request.
 
 ## Status
 
-Early — `v0.1`. All four language files (Python, Julia, MATLAB, R) are
-fleshed out, and the repo is packaged as an installable plugin. Feedback and
-contributions from the lab are welcome.
+`v1.0`. All four language files (Python, Julia, MATLAB, R) are fleshed out,
+the repo is packaged as an installable plugin, and the workflow guides are
+reachable from the skill itself. Feedback and contributions from the lab are
+welcome.
 
 Planned for a later version: a section on scaling analyses to the cluster
 (SLURM) — job arrays over sessions/subjects, resource requests, and how it
