@@ -1,16 +1,17 @@
 # Agentic coding in the lab — a guide for humans
 
 How to *drive* LLM coding agents to produce good lab code. This is the
-human-facing companion to [`agentic-coding-for-agents.md`](agentic-coding-for-agents.md),
+human-facing companion to [`SKILL.md`](SKILL.md),
 which is written for the agents themselves. For *what good code looks like*, see
-[`../SKILL.md`](../SKILL.md) — the agents apply it; you make sure they did.
+the `delab-coding-practices` skill — the agents apply it; you make sure they did.
 
 ## The mental model: you're the PI, not the coder
 
 You direct a small team of agents rather than writing every line:
 
 - A **project-manager (PM) agent** breaks your goal into small work items,
-  writes each as an issue, and delegates it.
+  writes each one down — as a GitLab issue if it can, otherwise as a file under
+  `docs/issues/` — and delegates it.
 - **Worker subagents** each implement one work item.
 - **Reviewer subagents** — fresh, adversarial — check the result before it lands.
 
@@ -24,7 +25,7 @@ it's right*, not in typing.
 your goal
    │
    ▼
-PM decomposes into small work items, each written as a GitLab issue
+PM decomposes into small work items, each written down
    │
    ├─ simple item  ──────────────► PM assigns a worker subagent
    │
@@ -37,7 +38,7 @@ PM decomposes into small work items, each written as a GitLab issue
                                                                 ▼
                         fresh reviewer subagents (NOT the author):
                           • adversarial correctness review
-                          • style review against ../SKILL.md
+                          • style review against the principles
                                                                 │
                                                                 ▼
                               fix findings → merge request → main → close issue
@@ -47,7 +48,7 @@ PM decomposes into small work items, each written as a GitLab issue
 
 1. **Set a clear goal and constraints.** What's the deliverable, what data, what
    must not change.
-2. **Approve the plan for complex work.** The PM writes each work item as an issue;
+2. **Approve the plan for complex work.** The PM writes each work item down — an issue, or a file under `docs/issues/`;
    for anything complex it should stop and wait for you to confirm the issue
    *before* assigning it. This is your highest-leverage moment — fixing a wrong
    plan here costs a sentence; fixing it after implementation costs hours. Let
@@ -62,11 +63,12 @@ PM decomposes into small work items, each written as a GitLab issue
 
 ## Why issue-driven development
 
-Each work item becomes a durable issue (the lab uses GitLab — principle 12). This
+Each work item becomes a durable record — a GitLab issue, or a file in the repo (principle 12). This
 isn't bureaucracy:
 
-- The issue is a **shared spec** — you, the worker, and the reviewers all work
-  from the same description.
+- The work item is a **shared spec** — you, the worker, and the reviewers all
+  work from the same description, whether it lives on an issue board or in
+  `docs/issues/`.
 - For complex work, the issue **is the plan you approve** before anyone codes.
 - Issues are **traceable** — every branch and merge request ties back to one, so
   it's clear why each change exists.
@@ -85,7 +87,7 @@ reviewer subagents**:
 - **Correctness** — actively tries to break it: wrong results, edge cases, silent
   failures (principle 9). For analyses, that it recovers the known answer on
   synthetic data (below) and that magnitudes and units are sane.
-- **Style** — conformance to every principle in `../SKILL.md`.
+- **Style** — conformance to every principle in the `delab-coding-practices` skill.
 
 ## Infrastructure vs data science
 
@@ -151,10 +153,13 @@ and role, not scope:
 
 Scope cheat-sheet (GitLab):
 
-- `api` — create/update issues and MRs, comment, **and** push over HTTPS.
-  Required for this workflow.
-- `write_repository` — push only, no API; not enough on its own, because the PM
-  must also create issues and MRs.
+- `api` — create/update issues and MRs, comment, **and** push over HTTPS. This
+  is what you want if you want issues on GitLab.
+- `write_repository` — push only, no API. The PM can still work: work items
+  become files under `docs/issues/`, and merge requests are opened with git push
+  options (`git push -o merge_request.create -o merge_request.title="…"`) rather
+  than the API. You lose the issue board and the ability to comment on an MR,
+  not the workflow.
 
 ## Common pitfalls
 
@@ -178,9 +183,8 @@ Scope cheat-sheet (GitLab):
 
 - **Issues / branches / MRs:** GitLab by default (principle 12).
 - **Roles map to agents.** You (the PI) talk to the **PM** — the main Claude Code
-  session. Run **`/delab-enforce-style`** to make it adopt the PM persona, or
-  **`/delab-workflow`** to put this workflow in front of an agent that is working
-  the wrong way without handing it the PM role. It then
+  session. Load this skill — **`/delab-coding-practices:delab-agentic-workflow`**
+  — at the start of the session to put it in the PM role. It then
   delegates work to the bundled **`delab-coder`** subagent and reviews with the
   bundled **`delab-reviewer`** subagent (which reports, never fixes), both
   shipped with this plugin

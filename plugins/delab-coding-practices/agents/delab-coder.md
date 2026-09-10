@@ -4,7 +4,7 @@ description: Implements a scoped delab work item in Python, Julia, MATLAB, or R,
 skills:
   - delab-coding-practices
 # A scoped work item with written acceptance criteria does not need the
-# strongest model; see guides/agentic-coding-for-agents.md for the reasoning.
+# strongest model; the delab-agentic-workflow skill has the reasoning.
 model: sonnet
 # One work item, one checkout, so parallel workers cannot corrupt each other.
 isolation: worktree

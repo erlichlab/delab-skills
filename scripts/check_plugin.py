@@ -28,6 +28,10 @@ LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
 # ${CLAUDE_PLUGIN_ROOT}/... paths that a command file tells the agent to read.
 PLUGIN_ROOT_REF = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}/([A-Za-z0-9_./<>-]+)")
 FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
+# A `/delab-thing` or `/plugin:delab-thing` slash command named in prose.
+COMMAND_MENTION = re.compile(r"/(?:[a-z0-9-]+:)?(delab-[a-z0-9-]+)")
+# A skill referred to by bare name, the form skills use for each other.
+SKILL_MENTION = re.compile(r"`(delab-[a-z0-9-]+)`")
 # A top-level frontmatter key and whatever follows the colon on the same line.
 # Unindented only, so nothing inside a block scalar or a list can match.
 FRONTMATTER_KEY = re.compile(r"\A([A-Za-z0-9_-]+):(.*)\Z")
@@ -110,6 +114,17 @@ def unquote(value: str) -> str:
 def frontmatter_field(path: Path, field: str) -> str | None:
     """Value of a top-level scalar frontmatter field, or None if absent/empty."""
     return parse_frontmatter(path.read_text(encoding="utf-8")).get(field) or None
+
+
+def is_ignored(root: Path, path: Path) -> bool:
+    """Paths that are not part of the repo's content.
+
+    `.claude/worktrees/` holds subagent checkouts created while the workflow
+    runs. They are gitignored, but they sit inside the tree, so without this the
+    checker fails on files belonging to a worker that is still working.
+    """
+    parts = path.relative_to(root).parts
+    return ".git" in parts or parts[:1] == (".claude",)
 
 
 def slugify(heading: str) -> str:
@@ -424,11 +439,61 @@ def check_plugin_root_refs(plugin_dir: Path) -> list[str]:
     return problems
 
 
+def check_command_mentions(root: Path, available: set[str]) -> list[str]:
+    """Every `/delab-…` or `` `delab-…` `` named in prose resolves to something.
+
+    Skills refer to each other and to commands by name rather than by path,
+    because a skill vendored alone into `.agents/skills/` has no siblings to
+    resolve a path against — so the link checker cannot see these references.
+    Without this a deleted command, or a renamed skill, goes on being advertised
+    by the docs that replaced it.
+    """
+    problems = []
+    for doc in sorted(root.rglob("*.md")):
+        if is_ignored(root, doc):
+            continue
+        text = doc.read_text(encoding="utf-8")
+        named = set(COMMAND_MENTION.findall(text)) | set(SKILL_MENTION.findall(text))
+        for name in sorted(named - available):
+            problems.append(
+                f"{doc.relative_to(root)}: names `{name}`, which is not a "
+                "command or skill in this repo"
+            )
+    return problems
+
+
+def plugin_component_names(root: Path) -> set[str]:
+    """Every name a doc may legitimately refer to: commands, skills, agents.
+
+    Plus the repository itself, which prose names as often as it names a
+    component.
+    """
+    data, _ = load_json(root / ".claude-plugin" / "marketplace.json")
+    names = {root.name}
+    for entry in (data or {}).get("plugins", []):
+        if not entry.get("source"):
+            continue
+        plugin_dir = (root / entry["source"]).resolve()
+        names |= {path.stem for path in plugin_dir.glob("commands/*.md")}
+        names |= {path.parent.name for path in plugin_dir.glob("skills/*/SKILL.md")}
+        names |= {path.stem for path in plugin_dir.glob("agents/*.md")}
+    return names
+
+
+def check_all_mentions(root: Path) -> list[str]:
+    """check_command_mentions against the union of every plugin's components.
+
+    The names must be pooled before matching: checking each plugin separately
+    would report every other plugin's commands as missing.
+    """
+    return check_command_mentions(root, plugin_component_names(root))
+
+
 def check_links(root: Path) -> list[str]:
     """Every relative Markdown link — and heading anchor — resolves."""
     problems = []
     for doc in sorted(root.rglob("*.md")):
-        if ".git" in doc.parts:
+        if is_ignored(root, doc):
             continue
         for target in LINK.findall(doc.read_text(encoding="utf-8")):
             if target.startswith(("http://", "https://", "mailto:")):
@@ -447,7 +512,7 @@ def main(root: Path) -> int:
         # Report paths relative to the repo so the message is the same whether
         # it comes from a laptop or a CI runner's checkout directory.
         problem.replace(f"{root}/", "")
-        for check in (check_marketplace, check_links)
+        for check in (check_marketplace, check_links, check_all_mentions)
         for problem in check(root)
     ]
     for problem in problems:

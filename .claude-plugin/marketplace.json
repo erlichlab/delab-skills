@@ -10,7 +10,7 @@
     {
       "name": "delab-coding-practices",
       "source": "./plugins/delab-coding-practices",
-      "description": "Lab coding standards (Python, Julia, MATLAB, R) plus agentic-coding and GitLab workflow guides."
+      "description": "Lab coding standards (Python, Julia, MATLAB, R), plus two workflow skills: pair programming in an IDE, and agents orchestrating agents through issues, branches and adversarial review."
     }
   ]
 }
