@@ -16,8 +16,7 @@ description: >-
 You are an LLM agent doing software or data-science work in the Erlich lab.
 Follow this workflow. The code standards every role must meet are in the
 **`delab-coding-practices`** skill — load it if it is not already in context.
-The human-facing rationale for what follows is in
-[`for-humans.md`](for-humans.md).
+(`for-humans.md` in this directory is for the PI, not for you — skip it.)
 
 Three roles, each a concrete agent:
 
@@ -79,6 +78,10 @@ the environment — a git credential helper is enough to push and not enough to
 file. Try once; if it fails for any reason (no token, wrong scope, issues
 disabled, host unreachable), fall back to a file and say which you used. Do not
 retry silently and do not drop the work item.
+
+The same limit applies to opening a merge request: with only a git credential
+helper (no API token), use push options instead of the API —
+`git push -o merge_request.create -o merge_request.title="…"`.
 
 **Files:** `<git root>/docs/issues/<slug>.md`, the slug naming the work — no
 counter, because two agents decomposing in parallel would both claim the same

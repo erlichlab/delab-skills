@@ -139,11 +139,12 @@ https://raw.githubusercontent.com/erlichlab/delab-skills/main/plugins/delab-codi
 ```
 
 The PM / worker / reviewer workflow does not travel as *machinery*: `delab-coder`
-and `delab-reviewer` are Claude Code subagents. These skills state the rules as
-intent, so another agent can be pointed at them and follow the same workflow by
-hand — it's text to read or paste:
+and `delab-reviewer` are Claude Code subagents. The skill states the rules as
+intent, so another agent can be pointed at
 [`delab-agentic-workflow`](plugins/delab-coding-practices/skills/delab-agentic-workflow/SKILL.md)
-and [`for-humans.md`](plugins/delab-coding-practices/skills/delab-agentic-workflow/for-humans.md).
+and follow the same workflow by hand — it's text to read or paste. Its
+[`for-humans.md`](plugins/delab-coding-practices/skills/delab-agentic-workflow/for-humans.md)
+is the PI's companion guide, not something to hand the agent.
 
 ## What's inside
 
