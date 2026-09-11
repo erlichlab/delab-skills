@@ -1,9 +1,9 @@
 # Agentic coding in the lab — a guide for humans
 
 How to *drive* LLM coding agents to produce good lab code. This is the
-human-facing companion to [`SKILL.md`](SKILL.md),
-which is written for the agents themselves. For *what good code looks like*, see
-the `delab-coding-practices` skill — the agents apply it; you make sure they did.
+human-facing companion to [`SKILL.md`](SKILL.md), which is written for the
+agents themselves. For *what good code looks like*, see the
+`delab-coding-practices` skill — the agents apply it; you make sure they did.
 
 ## The mental model: you're the PI, not the coder
 
@@ -48,11 +48,12 @@ PM decomposes into small work items, each written down
 
 1. **Set a clear goal and constraints.** What's the deliverable, what data, what
    must not change.
-2. **Approve the plan for complex work.** The PM writes each work item down — an issue, or a file under `docs/issues/`;
-   for anything complex it should stop and wait for you to confirm the issue
-   *before* assigning it. This is your highest-leverage moment — fixing a wrong
-   plan here costs a sentence; fixing it after implementation costs hours. Let
-   simple, well-scoped items run without you.
+2. **Approve the plan for complex work.** The PM writes each work item down — an
+   issue, or a file under `docs/issues/`; for anything complex it should stop
+   and wait for you to confirm the issue *before* assigning it. This is your
+   highest-leverage moment — fixing a wrong plan here costs a sentence; fixing
+   it after implementation costs hours. Let simple, well-scoped items run
+   without you.
 3. **Own correctness.** Reviewers help, but a plausible-looking analysis can still
    be wrong — sign off yourself on anything headed for a paper, and verify by
    *running* it, not just reading the diff.
@@ -63,8 +64,8 @@ PM decomposes into small work items, each written down
 
 ## Why issue-driven development
 
-Each work item becomes a durable record — a GitLab issue, or a file in the repo (principle 12). This
-isn't bureaucracy:
+Each work item becomes a durable record — a GitLab issue, or a file in the repo
+(principle 12). This isn't bureaucracy:
 
 - The work item is a **shared spec** — you, the worker, and the reviewers all
   work from the same description, whether it lives on an issue board or in
@@ -87,7 +88,8 @@ reviewer subagents**:
 - **Correctness** — actively tries to break it: wrong results, edge cases, silent
   failures (principle 9). For analyses, that it recovers the known answer on
   synthetic data (below) and that magnitudes and units are sane.
-- **Style** — conformance to every principle in the `delab-coding-practices` skill.
+- **Style** — conformance to every principle in the `delab-coding-practices`
+  skill.
 
 ## Infrastructure vs data science
 
@@ -182,13 +184,13 @@ Scope cheat-sheet (GitLab):
 ## Tooling notes
 
 - **Issues / branches / MRs:** GitLab by default (principle 12).
-- **Roles map to agents.** You (the PI) talk to the **PM** — the main Claude Code
-  session. Load this skill — **`/delab-coding-practices:delab-agentic-workflow`**
-  — at the start of the session to put it in the PM role. It then
-  delegates work to the bundled **`delab-coder`** subagent and reviews with the
-  bundled **`delab-reviewer`** subagent (which reports, never fixes), both
-  shipped with this plugin
-  with the principles preloaded — so you don't hand-wire the standards each time.
+- **Roles map to agents.** You (the PI) talk to the **PM** — the main Claude
+  Code session. Load this skill —
+  **`/delab-coding-practices:delab-agentic-workflow`** — at the start of the
+  session to put it in the PM role. It then delegates work to the bundled
+  **`delab-coder`** subagent and reviews with the bundled **`delab-reviewer`**
+  subagent (which reports, never fixes), both shipped with this plugin with the
+  principles preloaded — so you don't hand-wire the standards each time.
 - **Model & cost:** the bundled agents already do this — `delab-coder` runs on
   Sonnet, `delab-reviewer` matches your session's model. Spend the capability on
   review, not on typing: review is what catches a wrong number before it reaches
@@ -197,8 +199,7 @@ Scope cheat-sheet (GitLab):
   weakened the check, not just the typing. Naming a model is also a request
   rather than a guarantee: if it is not available to your account the harness
   quietly substitutes a near one, so confirm what a review actually ran on
-  before you trust it on anything headed for a paper. Watch token spend on
-  large fan-outs.
-  To override the agents' own model choices lab-wide, set
+  before you trust it on anything headed for a paper. Watch token spend on large
+  fan-outs. To override the agents' own model choices lab-wide, set
   `CLAUDE_CODE_SUBAGENT_MODEL_FORCE` — plain `CLAUDE_CODE_SUBAGENT_MODEL` only
   sets a default, which an agent that names its own model ignores.
