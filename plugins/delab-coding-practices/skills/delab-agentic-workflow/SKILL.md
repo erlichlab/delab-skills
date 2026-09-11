@@ -214,6 +214,7 @@ Pick the dev method from the issue's **type**:
      tolerance).
   3. Build the analysis until that test passes on the synthetic data.
   4. *Only then* run it on real data.
+
   Rationale: real data has no answer key, so synthetic data is how you tell a bug
   from a discovery.
 
