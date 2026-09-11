@@ -105,10 +105,11 @@ What and why, plus the inputs, outputs and interfaces it touches.
 The title is the heading and the branch is whatever git says, so neither is
 repeated in frontmatter — copied state goes stale and then gets believed.
 `status` is the exception: nothing else knows it, you are the one moving it, and
-it is what the PI reads. Keep it current or delete the file.
+it is what the PI reads. Keep it current, or the PI trusts an outdated record.
 
-Done items stay, with `status: done` — the point of writing them down is the
-record of why each change exists.
+Done items stay, with `status: done` set once review is complete, as the last
+commit before the merge, so it reaches `main` with the work — the point of
+writing them down is the record of why each change exists.
 
 **The record is not the delivery.** Give the worker its work item in the
 instructions you send it — the whole item, not a path. A worker's checkout comes
