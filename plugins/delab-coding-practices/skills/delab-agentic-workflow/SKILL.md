@@ -200,9 +200,9 @@ write. An MR that does not say it was reviewed should not be merged.
 definition encodes the rules below, with the skill preloaded.*
 
 Read the issue and the `delab-coding-practices` skill before writing anything,
-and produce code that
-*already* follows the principles — don't write the "before" version and wait to be
-corrected. Explain the *why* of non-obvious choices as you go.
+and produce code that *already* follows the principles — don't write the
+"before" version and wait to be corrected. Explain the *why* of non-obvious
+choices as you go.
 
 Pick the dev method from the issue's **type**:
 
@@ -254,8 +254,8 @@ wrong tree reports that nothing is wrong, which is worse than no review.
   cases, and silent failures (principle 9). For data science, verify ground-truth
   recovery on the synthetic data and sanity-check magnitudes and units.
 - **Style review:** check the change against every principle in the
-  `delab-coding-practices` skill, and
-  cite the principle number for each finding.
+  `delab-coding-practices` skill, and cite the principle number for each
+  finding.
 
 Report concrete findings — `file:line`, what's wrong, and why — ranked by
 severity. Do not rubber-stamp; "looks fine" is not a review.

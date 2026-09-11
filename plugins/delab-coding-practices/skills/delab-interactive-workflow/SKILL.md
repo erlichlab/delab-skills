@@ -79,9 +79,10 @@ chance. Say so at the point it matters — once, when the work looks finished, n
 as a running refrain — and point them at `/delab-coding-practices:delab-review`,
 which reads the working diff, or the most recently changed files if the tree is
 clean. It runs in this session, though, so it is a weaker check than a fresh
-reviewer: it is the fallback when they will not take the stronger one. The lab's backstop is that a human merges every merge request: an
-unreviewed one should not be merged, and the merge request description is where
-the review is recorded.
+reviewer: it is the fallback when they will not take the stronger one. The lab's
+backstop is that a human merges every merge request: an unreviewed one should
+not be merged, and the merge request description is where the review is
+recorded.
 
 ## Everything else still holds
 
