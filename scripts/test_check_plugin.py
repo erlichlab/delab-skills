@@ -14,6 +14,7 @@ standard library — no environment to create on a bare clone.
 
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -425,6 +426,99 @@ class CheckPluginRootRefs(unittest.TestCase):
             plugin_dir, "Read ${CLAUDE_PLUGIN_ROOT}/languages/<lang>.md now.\n"
         )
         self.assertEqual(check_plugin_root_refs(plugin_dir), [])
+
+
+class LoadJson(unittest.TestCase):
+    def test_missing_file_is_reported(self):
+        data, problems = load_json(Path(tempfile.mkdtemp()) / "gone.json")
+        self.assertIsNone(data)
+        self.assertTrue(any("missing" in p for p in problems))
+
+    def test_invalid_json_is_reported(self):
+        path = Path(tempfile.mkdtemp()) / "bad.json"
+        path.write_text("{not valid json", encoding="utf-8")
+        data, problems = load_json(path)
+        self.assertIsNone(data)
+        self.assertTrue(any("invalid JSON" in p for p in problems))
+
+    def test_valid_json_parses_with_no_problems(self):
+        path = Path(tempfile.mkdtemp()) / "good.json"
+        path.write_text('{"name": "demo"}', encoding="utf-8")
+        data, problems = load_json(path)
+        self.assertEqual(data, {"name": "demo"})
+        self.assertEqual(problems, [])
+
+
+class CheckMarketplace(unittest.TestCase):
+    """The catalog (marketplace.json) and every manifest it points at."""
+
+    def make_root(self) -> Path:
+        return Path(tempfile.mkdtemp())
+
+    def write_marketplace(self, root: Path, data: dict) -> None:
+        marketplace_dir = root / ".claude-plugin"
+        marketplace_dir.mkdir(parents=True, exist_ok=True)
+        (marketplace_dir / "marketplace.json").write_text(
+            json.dumps(data), encoding="utf-8"
+        )
+
+    def make_valid_plugin(self, root: Path, name: str) -> None:
+        """A minimal plugin with no problems of its own to report."""
+        plugin_dir = root / name
+        (plugin_dir / ".claude-plugin").mkdir(parents=True)
+        (plugin_dir / ".claude-plugin" / "plugin.json").write_text(
+            json.dumps({"name": name, "description": "A demo plugin."}),
+            encoding="utf-8",
+        )
+        skill_dir = plugin_dir / "skills" / "demo"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: demo\ndescription: A demo.\n---\n\nBody.\n", encoding="utf-8"
+        )
+
+    def test_missing_marketplace_name_is_reported(self):
+        root = self.make_root()
+        self.write_marketplace(root, {"plugins": []})
+        problems = check_marketplace(root)
+        self.assertTrue(any("missing `name`" in p for p in problems))
+
+    def test_entry_missing_source_is_reported(self):
+        root = self.make_root()
+        self.write_marketplace(
+            root, {"name": "cat", "plugins": [{"name": "demo"}]}
+        )
+        problems = check_marketplace(root)
+        self.assertTrue(any("needs `name` and `source`" in p for p in problems))
+
+    def test_source_that_is_not_a_directory_is_reported(self):
+        root = self.make_root()
+        self.write_marketplace(
+            root,
+            {"name": "cat", "plugins": [{"name": "demo", "source": "./nope"}]},
+        )
+        problems = check_marketplace(root)
+        self.assertTrue(any("is not a directory" in p for p in problems))
+
+    def test_directory_name_mismatch_is_reported(self):
+        root = self.make_root()
+        self.make_valid_plugin(root, "actual-dir")
+        self.write_marketplace(
+            root,
+            {
+                "name": "cat",
+                "plugins": [{"name": "demo", "source": "./actual-dir"}],
+            },
+        )
+        problems = check_marketplace(root)
+        self.assertTrue(any("directory name and plugin name must match" in p for p in problems))
+
+    def test_valid_marketplace_and_plugin_pass(self):
+        root = self.make_root()
+        self.make_valid_plugin(root, "demo")
+        self.write_marketplace(
+            root, {"name": "cat", "plugins": [{"name": "demo", "source": "./demo"}]}
+        )
+        self.assertEqual(check_marketplace(root), [])
 
 
 if __name__ == "__main__":
