@@ -346,5 +346,49 @@ class CheckManifestPaths(unittest.TestCase):
         self.assertEqual(check_manifest_paths(self.make_plugin_dir(), {}), [])
 
 
+class Slugify(unittest.TestCase):
+    def test_lowercases_and_hyphenates_spaces(self):
+        self.assertEqual(slugify("## Some Heading"), "some-heading")
+
+    def test_strips_punctuation_but_keeps_hyphens_and_underscores(self):
+        self.assertEqual(slugify("# It's a Test: v2!"), "its-a-test-v2")
+
+
+class CheckLinks(unittest.TestCase):
+    def make_root(self) -> Path:
+        return Path(tempfile.mkdtemp())
+
+    def test_missing_file_is_reported(self):
+        root = self.make_root()
+        (root / "doc.md").write_text("See [gone](nonexistent.md).\n", encoding="utf-8")
+        problems = check_links(root)
+        self.assertTrue(any("dead link" in p for p in problems))
+
+    def test_missing_anchor_is_reported(self):
+        root = self.make_root()
+        (root / "other.md").write_text("# Real Heading\n", encoding="utf-8")
+        (root / "doc.md").write_text(
+            "See [it](other.md#not-a-real-heading).\n", encoding="utf-8"
+        )
+        problems = check_links(root)
+        self.assertTrue(any("dead anchor" in p for p in problems))
+
+    def test_valid_link_with_anchor_passes(self):
+        root = self.make_root()
+        (root / "other.md").write_text("# Real Heading\n", encoding="utf-8")
+        (root / "doc.md").write_text(
+            "See [it](other.md#real-heading).\n", encoding="utf-8"
+        )
+        self.assertEqual(check_links(root), [])
+
+    def test_external_and_mailto_links_are_not_checked(self):
+        root = self.make_root()
+        (root / "doc.md").write_text(
+            "See [x](https://example.com/nope) or [y](mailto:a@b.com).\n",
+            encoding="utf-8",
+        )
+        self.assertEqual(check_links(root), [])
+
+
 if __name__ == "__main__":
     unittest.main()
