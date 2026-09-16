@@ -351,8 +351,15 @@ class Slugify(unittest.TestCase):
     def test_lowercases_and_hyphenates_spaces(self):
         self.assertEqual(slugify("## Some Heading"), "some-heading")
 
-    def test_strips_punctuation_but_keeps_hyphens_and_underscores(self):
+    def test_strips_punctuation(self):
         self.assertEqual(slugify("# It's a Test: v2!"), "its-a-test-v2")
+
+    def test_underscores_fold_into_hyphens_like_whitespace(self):
+        """`slugify` has no separate underscore case: `[\\s_]+` folds an
+        underscore run together with whitespace into one hyphen, same as a
+        space would. A literal hyphen in the heading is left alone."""
+        self.assertEqual(slugify("# check_manifest_paths"), "check-manifest-paths")
+        self.assertEqual(slugify("# already-hyphenated"), "already-hyphenated")
 
 
 class CheckLinks(unittest.TestCase):
