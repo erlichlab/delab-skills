@@ -13,6 +13,13 @@ on:
 permissions:
   contents: write
 
+# Only one release attempt per branch at a time: two overlapping runs could
+# both see "tag not found" and both try to create the same tag/release, one
+# of them failing with a confusing API error instead of a clean no-op.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -24,20 +31,35 @@ jobs:
 
       - name: Compute release tag from plugin.json
         id: tag
-        run: echo "tag=$(python3 scripts/release_version.py current-tag)" >> "$GITHUB_OUTPUT"
+        run: |
+          # A bare `echo "tag=$(cmd)"` would swallow a failure of `cmd`: the
+          # substitution's exit status is discarded, and `echo` itself always
+          # succeeds, so this step would go green with an empty tag and the
+          # real error would only surface later, misattributed, at `gh
+          # release create ""`. Capture the exit status explicitly instead.
+          TAG=$(python3 scripts/release_version.py current-tag) || exit 1
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Create the release if this version hasn't been tagged yet
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          if python3 scripts/release_version.py tag-exists "$TAG" $(git tag); then
+          # tag-exists's exit code has three meanings, not two — see
+          # release_version.py's module docstring — so this must not treat
+          # every nonzero code as "confirmed absent, go ahead and release".
+          status=0
+          python3 scripts/release_version.py tag-exists "$TAG" $(git tag) || status=$?
+          if [ "$status" -eq 0 ]; then
             echo "$TAG already released; nothing to do."
-          else
+          elif [ "$status" -eq 1 ]; then
             # --generate-notes drafts the body from commits/PRs since the
             # previous tag; with no previous tag at all (the mirror's first
             # run) GitHub's API covers everything up to HEAD instead of
             # erroring, so the "no prior release" case needs no special code
             # here.
             gh release create "$TAG" --title "$TAG" --generate-notes
+          else
+            echo "release_version.py tag-exists exited $status (expected 0 or 1); failing the step rather than guessing" >&2
+            exit 1
           fi
