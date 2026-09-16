@@ -24,10 +24,16 @@ from check_plugin import (
     check_agent_isolation,
     check_command_mentions,
     check_frontmatter_yaml,
+    check_links,
+    check_manifest_paths,
+    check_marketplace,
+    check_plugin_root_refs,
     check_skill_description,
     check_skill_frontmatter,
     check_skill_name,
+    load_json,
     parse_frontmatter,
+    slugify,
 )
 
 
@@ -304,6 +310,40 @@ class CheckSkillDescription(unittest.TestCase):
         self.assertEqual(check_skill_description("x" * SKILL_DESCRIPTION_MAX), [])
         over = check_skill_description("x" * (SKILL_DESCRIPTION_MAX + 1))
         self.assertTrue(any("caps it at 1024" in p for p in over))
+
+
+class CheckManifestPaths(unittest.TestCase):
+    """The !13 breakage: a directory value in `commands`/`agents` makes
+    `/plugin install` fail for every user, with no error anywhere else."""
+
+    def make_plugin_dir(self) -> Path:
+        return Path(tempfile.mkdtemp())
+
+    def test_directory_value_is_the_13_breakage(self):
+        """`"agents": "./agents"` is exactly what broke installs in !13."""
+        plugin_dir = self.make_plugin_dir()
+        (plugin_dir / "agents").mkdir()
+        problems = check_manifest_paths(plugin_dir, {"agents": "./agents"})
+        self.assertTrue(any("a directory" in p for p in problems))
+
+    def test_list_of_existing_md_files_passes(self):
+        plugin_dir = self.make_plugin_dir()
+        commands_dir = plugin_dir / "commands"
+        commands_dir.mkdir()
+        (commands_dir / "foo.md").write_text("# Foo\n", encoding="utf-8")
+        (commands_dir / "bar.md").write_text("# Bar\n", encoding="utf-8")
+        manifest = {"commands": ["commands/foo.md", "commands/bar.md"]}
+        self.assertEqual(check_manifest_paths(plugin_dir, manifest), [])
+
+    def test_listed_md_file_that_does_not_exist_is_reported(self):
+        plugin_dir = self.make_plugin_dir()
+        manifest = {"commands": ["commands/missing.md"]}
+        problems = check_manifest_paths(plugin_dir, manifest)
+        self.assertTrue(any("does not exist" in p for p in problems))
+
+    def test_field_absent_is_not_an_error(self):
+        """Dropping the field entirely is the documented fix — it must pass."""
+        self.assertEqual(check_manifest_paths(self.make_plugin_dir(), {}), [])
 
 
 if __name__ == "__main__":
