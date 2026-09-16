@@ -33,6 +33,8 @@ from check_plugin import (
     check_skill_description,
     check_skill_frontmatter,
     check_skill_name,
+    find_unclosed_fence,
+    heading_anchors,
     load_json,
     parse_frontmatter,
     plugin_component_names,
@@ -359,6 +361,88 @@ class PluginComponentNames(unittest.TestCase):
         root = self.build_repo(["https://github.com/erlichlab/delab-skills"])
         problems = check_all_mentions(root)
         self.assertTrue(any("repository" in p and "string" in p for p in problems))
+
+
+class HeadingAnchors(unittest.TestCase):
+    """A `#` line inside a fenced code block is a comment, not a heading."""
+
+    def test_fenced_comment_is_not_an_anchor(self):
+        text = "# Real Heading\n\n```python\n# load data\n```\n"
+        self.assertEqual(heading_anchors(text), {"real-heading"})
+
+    def test_heading_after_a_closed_fence_still_counts(self):
+        text = "```python\n# not a heading\n```\n\n# Load Data\n"
+        self.assertEqual(heading_anchors(text), {"load-data"})
+
+    def test_mismatched_fence_type_inside_does_not_close_the_outer_fence(self):
+        """A ``` example nested in a ~~~ fence must not toggle the state off."""
+        text = (
+            "# Real Heading\n\n"
+            "~~~text\n"
+            "example:\n"
+            "```python\n"
+            "# load data\n"
+            "```\n"
+            "~~~\n"
+        )
+        self.assertEqual(heading_anchors(text), {"real-heading"})
+
+    def test_shorter_fence_of_the_same_type_inside_does_not_close_the_outer_fence(self):
+        """CommonMark requires a closer at least as long as its opener."""
+        text = (
+            "# Real Heading\n\n"
+            "````text\n"
+            "example:\n"
+            "```python\n"
+            "# load data\n"
+            "```\n"
+            "````\n"
+        )
+        self.assertEqual(heading_anchors(text), {"real-heading"})
+
+    def test_unclosed_fence_swallows_headings_after_it(self):
+        """CommonMark: an unterminated fence runs to end of file."""
+        text = "```python\n# load data\n\n# Load Data\n"
+        self.assertEqual(heading_anchors(text), set())
+
+
+class FindUnclosedFence(unittest.TestCase):
+    def test_closed_fence_reports_none(self):
+        self.assertIsNone(find_unclosed_fence("```python\n# x\n```\n"))
+
+    def test_unclosed_fence_reports_its_opening_line(self):
+        text = "intro\n\n```python\n# x\n"
+        self.assertEqual(find_unclosed_fence(text), 3)
+
+    def test_no_fence_reports_none(self):
+        self.assertIsNone(find_unclosed_fence("# Heading\n\nbody\n"))
+
+
+class CheckLinksFencedAnchors(unittest.TestCase):
+    """Regression for issue #8: a fenced-code comment must not satisfy a link."""
+
+    def build(self, other_body: str, link_target: str) -> Path:
+        root = Path(tempfile.mkdtemp())
+        (root / "other.md").write_text(other_body, encoding="utf-8")
+        (root / "doc.md").write_text(f"[see]({link_target})\n", encoding="utf-8")
+        return root
+
+    def test_link_to_fenced_comment_only_anchor_is_dead(self):
+        root = self.build("```python\n# load data\n```\n", "other.md#load-data")
+        problems = check_links(root)
+        self.assertTrue(any("dead anchor" in p for p in problems))
+
+    def test_link_to_real_heading_passes(self):
+        root = self.build("# Load Data\n", "other.md#load-data")
+        self.assertEqual(check_links(root), [])
+
+    def test_link_into_an_unclosed_fence_names_the_real_cause(self):
+        """The generic 'dead anchor' message would hide an unclosed fence as
+        the actual cause; the checker must call it out instead of leaving the
+        reader to assume the heading is simply missing (principle 9)."""
+        root = self.build("```python\n# load data\n\n# Load Data\n", "other.md#load-data")
+        problems = check_links(root)
+        self.assertTrue(any("unclosed fenced code block" in p for p in problems))
 
 
 class CheckSkillDescription(unittest.TestCase):
