@@ -1,0 +1,72 @@
+# Turns a version bump in plugins/delab-coding-practices/.claude-plugin/plugin.json
+# into a GitHub release. Runs on every push to `main` on GitHub, which today
+# means every run of the GitLab -> GitHub mirror cron job, not a push made
+# here directly. Most of those pushes don't touch the version, so tag-exists
+# (scripts/release_version.py) must make an unbumped push a silent no-op
+# rather than a duplicate-tag failure.
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+# Only one release attempt per branch at a time: two overlapping runs could
+# both see "tag not found" and both try to create the same tag/release, one
+# of them failing with a confusing API error instead of a clean no-op.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Need every tag, not just the tip commit, for tag-exists below.
+          fetch-depth: 0
+
+      - name: Compute release tag from plugin.json
+        id: tag
+        run: |
+          # A bare `echo "tag=$(cmd)"` would swallow a failure of `cmd`: the
+          # substitution's exit status is discarded, and `echo` itself always
+          # succeeds, so this step would go green with an empty tag and the
+          # real error would only surface later, misattributed, at `gh
+          # release create ""`. Capture the exit status explicitly instead.
+          TAG=$(python3 scripts/release_version.py current-tag) || exit 1
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Create the release if this version hasn't been tagged yet
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          # `git tag` itself can fail (broken checkout); capture that
+          # separately, since a swallowed failure here would substitute
+          # empty output, making tag-exists correctly-from-its-own-view
+          # report "not found" and proceed to release as if the tag were
+          # confirmed absent — the same silent-swallow bug as the current-tag
+          # step above, one command upstream.
+          existing_tags=$(git tag) || exit 1
+          # tag-exists's exit code has three meanings, not two — see
+          # release_version.py's module docstring — so this must not treat
+          # every nonzero code as "confirmed absent, go ahead and release".
+          status=0
+          python3 scripts/release_version.py tag-exists "$TAG" $existing_tags || status=$?
+          if [ "$status" -eq 0 ]; then
+            echo "$TAG already released; nothing to do."
+          elif [ "$status" -eq 1 ]; then
+            # --generate-notes drafts the body from commits/PRs since the
+            # previous tag; with no previous tag at all (the mirror's first
+            # run) GitHub's API covers everything up to HEAD instead of
+            # erroring, so the "no prior release" case needs no special code
+            # here.
+            gh release create "$TAG" --title "$TAG" --generate-notes
+          else
+            echo "release_version.py tag-exists exited $status (expected 0 or 1); failing the step rather than guessing" >&2
+            exit 1
+          fi
