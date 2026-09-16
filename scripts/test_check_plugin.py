@@ -390,5 +390,42 @@ class CheckLinks(unittest.TestCase):
         self.assertEqual(check_links(root), [])
 
 
+class CheckPluginRootRefs(unittest.TestCase):
+    """`${CLAUDE_PLUGIN_ROOT}/...` paths a command tells the agent to read."""
+
+    def write_command(self, plugin_dir: Path, text: str) -> None:
+        commands_dir = plugin_dir / "commands"
+        commands_dir.mkdir(parents=True, exist_ok=True)
+        (commands_dir / "cmd.md").write_text(text, encoding="utf-8")
+
+    def test_missing_target_is_reported(self):
+        plugin_dir = Path(tempfile.mkdtemp())
+        self.write_command(
+            plugin_dir, "Read ${CLAUDE_PLUGIN_ROOT}/skills/demo/SKILL.md now.\n"
+        )
+        problems = check_plugin_root_refs(plugin_dir)
+        self.assertTrue(any("skills/demo/SKILL.md does not exist" in p for p in problems))
+
+    def test_existing_target_passes(self):
+        plugin_dir = Path(tempfile.mkdtemp())
+        skill_dir = plugin_dir / "skills" / "demo"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("---\nname: demo\n---\n", encoding="utf-8")
+        self.write_command(
+            plugin_dir, "Read ${CLAUDE_PLUGIN_ROOT}/skills/demo/SKILL.md now.\n"
+        )
+        self.assertEqual(check_plugin_root_refs(plugin_dir), [])
+
+    def test_placeholder_ref_checks_only_the_parent_directory(self):
+        """`languages/<lang>.md` is filled in by the agent, so only
+        `languages/` — not the literal placeholder file — must exist."""
+        plugin_dir = Path(tempfile.mkdtemp())
+        (plugin_dir / "languages").mkdir(parents=True)
+        self.write_command(
+            plugin_dir, "Read ${CLAUDE_PLUGIN_ROOT}/languages/<lang>.md now.\n"
+        )
+        self.assertEqual(check_plugin_root_refs(plugin_dir), [])
+
+
 if __name__ == "__main__":
     unittest.main()
