@@ -137,28 +137,36 @@ def slugify(heading: str) -> str:
     return re.sub(r"[\s_]+", "-", text)
 
 
-def _fenced_lines(lines: list[str]) -> list[bool]:
-    """Whether each line sits inside a fenced code block.
+def _fenced_lines(lines: list[str]) -> tuple[list[bool], int | None]:
+    """Which lines sit inside a fenced code block, and where an unclosed one starts.
 
     A closer only ends the block it belongs to: CommonMark requires it to use
     the *same* character as its opener and be *at least as long*. A shorter or
     differently-typed fence-looking line nested inside (a ```python example
     inside a ~~~ fence, say) is ordinary content, not a toggle — so this tracks
     the open delimiter's (char, length) rather than a bare on/off flag.
+
+    Also returns the 1-based line of the last opener, if it is never closed —
+    CommonMark treats an unterminated fence as running to end of file, so the
+    caller can tell "no heading here" from "a heading here that a broken fence
+    is hiding" (principle 9).
     """
     in_fence = []
     opener: tuple[str, int] | None = None
-    for line in lines:
+    unclosed_at = None
+    for lineno, line in enumerate(lines, start=1):
         match = FENCE.match(line)
         if opener is None:
             if match:
                 opener = (match.group(1)[0], len(match.group(1)))
+                unclosed_at = lineno
             in_fence.append(match is not None)
             continue
         if match and match.group(1)[0] == opener[0] and len(match.group(1)) >= opener[1]:
             opener = None
+            unclosed_at = None
         in_fence.append(True)
-    return in_fence
+    return in_fence, unclosed_at
 
 
 def heading_anchors(text: str) -> set[str]:
@@ -170,12 +178,23 @@ def heading_anchors(text: str) -> set[str]:
     (principle 9).
     """
     lines = text.splitlines()
-    fenced = _fenced_lines(lines)
+    fenced, _ = _fenced_lines(lines)
     return {
         slugify(line)
         for line, is_fenced in zip(lines, fenced)
         if not is_fenced and line.startswith("#")
     }
+
+
+def find_unclosed_fence(text: str) -> int | None:
+    """1-based line of a fenced code block that is never closed, or None.
+
+    An unclosed fence swallows every heading after it (CommonMark runs it to
+    EOF), so it can make a real heading disappear from `heading_anchors` with
+    no clue why. Callers that see a missing anchor should check this and say
+    so, rather than reporting a plain "dead anchor" that looks like a typo.
+    """
+    return _fenced_lines(text.splitlines())[1]
 
 
 def anchors(path: Path) -> set[str]:
@@ -542,8 +561,20 @@ def check_links(root: Path) -> list[str]:
             destination = (doc.parent / path_part).resolve() if path_part else doc
             if not destination.exists():
                 problems.append(f"{doc.relative_to(root)}: dead link → {target}")
-            elif anchor and anchor not in anchors(destination):
-                problems.append(f"{doc.relative_to(root)}: dead anchor → {target}")
+                continue
+            if not anchor:
+                continue
+            dest_text = destination.read_text(encoding="utf-8")
+            if anchor in heading_anchors(dest_text):
+                continue
+            unclosed = find_unclosed_fence(dest_text)
+            hint = (
+                f" ({destination.relative_to(root)}:{unclosed} opens an "
+                "unclosed fenced code block, which may be hiding the heading)"
+                if unclosed
+                else ""
+            )
+            problems.append(f"{doc.relative_to(root)}: dead anchor → {target}{hint}")
     return problems
 
 

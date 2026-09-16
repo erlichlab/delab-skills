@@ -28,6 +28,7 @@ from check_plugin import (
     check_skill_description,
     check_skill_frontmatter,
     check_skill_name,
+    find_unclosed_fence,
     heading_anchors,
     parse_frontmatter,
 )
@@ -340,6 +341,18 @@ class HeadingAnchors(unittest.TestCase):
         self.assertEqual(heading_anchors(text), set())
 
 
+class FindUnclosedFence(unittest.TestCase):
+    def test_closed_fence_reports_none(self):
+        self.assertIsNone(find_unclosed_fence("```python\n# x\n```\n"))
+
+    def test_unclosed_fence_reports_its_opening_line(self):
+        text = "intro\n\n```python\n# x\n"
+        self.assertEqual(find_unclosed_fence(text), 3)
+
+    def test_no_fence_reports_none(self):
+        self.assertIsNone(find_unclosed_fence("# Heading\n\nbody\n"))
+
+
 class CheckLinksFencedAnchors(unittest.TestCase):
     """Regression for issue #8: a fenced-code comment must not satisfy a link."""
 
@@ -357,6 +370,14 @@ class CheckLinksFencedAnchors(unittest.TestCase):
     def test_link_to_real_heading_passes(self):
         root = self.build("# Load Data\n", "other.md#load-data")
         self.assertEqual(check_links(root), [])
+
+    def test_link_into_an_unclosed_fence_names_the_real_cause(self):
+        """The generic 'dead anchor' message would hide an unclosed fence as
+        the actual cause; the checker must call it out instead of leaving the
+        reader to assume the heading is simply missing (principle 9)."""
+        root = self.build("```python\n# load data\n\n# Load Data\n", "other.md#load-data")
+        problems = check_links(root)
+        self.assertTrue(any("unclosed fenced code block" in p for p in problems))
 
 
 class CheckSkillDescription(unittest.TestCase):
