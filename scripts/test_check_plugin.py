@@ -14,6 +14,7 @@ standard library — no environment to create on a bare clone.
 
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -22,12 +23,14 @@ from check_plugin import (
     SKILL_DESCRIPTION_MAX,
     check_agent_frontmatter,
     check_agent_isolation,
+    check_all_mentions,
     check_command_mentions,
     check_frontmatter_yaml,
     check_skill_description,
     check_skill_frontmatter,
     check_skill_name,
     parse_frontmatter,
+    plugin_component_names,
 )
 
 
@@ -293,6 +296,47 @@ class CheckCommandMentions(unittest.TestCase):
         worktree.mkdir(parents=True)
         (worktree / "stale.md").write_text("`/delab-gone`", encoding="utf-8")
         self.assertEqual(check_command_mentions(root, names), [])
+
+
+class PluginComponentNames(unittest.TestCase):
+    """The repo's own name must come from `repository` in plugin.json, not the
+    checkout directory's name — that is the repo's name only by coincidence,
+    and a subagent's worktree or any differently named clone breaks it."""
+
+    def build_repo(self, repository: str) -> Path:
+        root = Path(tempfile.mkdtemp())
+        plugin_dir = root / "plugins" / "demo"
+        (plugin_dir / ".claude-plugin").mkdir(parents=True)
+        (plugin_dir / ".claude-plugin" / "plugin.json").write_text(
+            json.dumps({"name": "demo", "repository": repository}), encoding="utf-8"
+        )
+        (root / ".claude-plugin").mkdir()
+        (root / ".claude-plugin" / "marketplace.json").write_text(
+            json.dumps(
+                {"name": "mkt", "plugins": [{"name": "demo", "source": "./plugins/demo"}]}
+            ),
+            encoding="utf-8",
+        )
+        return root
+
+    def test_repo_name_comes_from_manifest_not_checkout_dirname(self):
+        root = self.build_repo("https://github.com/erlichlab/delab-skills")
+        names = plugin_component_names(root)
+        self.assertIn("delab-skills", names)
+        self.assertNotIn(root.name, names)
+
+    def test_mention_of_repo_name_accepted_regardless_of_checkout_dirname(self):
+        """The fixture's temp dir is never named `delab-skills`; the mention
+        must still resolve via the manifest's `repository` field."""
+        root = self.build_repo("https://github.com/erlichlab/delab-skills")
+        (root / "doc.md").write_text("See `delab-skills` for details.", encoding="utf-8")
+        self.assertEqual(check_all_mentions(root), [])
+
+    def test_misspelt_repo_name_is_still_reported(self):
+        root = self.build_repo("https://github.com/erlichlab/delab-skills")
+        (root / "doc.md").write_text("See `delab-skils` for details.", encoding="utf-8")
+        problems = check_all_mentions(root)
+        self.assertTrue(any("delab-skils" in p for p in problems))
 
 
 class CheckSkillDescription(unittest.TestCase):
