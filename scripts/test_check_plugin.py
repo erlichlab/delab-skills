@@ -23,6 +23,7 @@ from check_plugin import (
     SKILL_DESCRIPTION_MAX,
     check_agent_frontmatter,
     check_agent_isolation,
+    check_all_mentions,
     check_command_mentions,
     check_frontmatter_yaml,
     check_links,
@@ -34,6 +35,7 @@ from check_plugin import (
     check_skill_name,
     load_json,
     parse_frontmatter,
+    plugin_component_names,
     slugify,
 )
 
@@ -300,6 +302,63 @@ class CheckCommandMentions(unittest.TestCase):
         worktree.mkdir(parents=True)
         (worktree / "stale.md").write_text("`/delab-gone`", encoding="utf-8")
         self.assertEqual(check_command_mentions(root, names), [])
+
+
+class PluginComponentNames(unittest.TestCase):
+    """The repo's own name must come from `repository` in plugin.json, not the
+    checkout directory's name — that is the repo's name only by coincidence,
+    and a subagent's worktree or any differently named clone breaks it."""
+
+    def build_repo(self, repository: str) -> Path:
+        root = Path(tempfile.mkdtemp())
+        plugin_dir = root / "plugins" / "demo"
+        (plugin_dir / ".claude-plugin").mkdir(parents=True)
+        (plugin_dir / ".claude-plugin" / "plugin.json").write_text(
+            json.dumps({"name": "demo", "repository": repository}), encoding="utf-8"
+        )
+        (root / ".claude-plugin").mkdir()
+        (root / ".claude-plugin" / "marketplace.json").write_text(
+            json.dumps(
+                {"name": "mkt", "plugins": [{"name": "demo", "source": "./plugins/demo"}]}
+            ),
+            encoding="utf-8",
+        )
+        return root
+
+    def test_repo_name_comes_from_manifest_not_checkout_dirname(self):
+        root = self.build_repo("https://github.com/erlichlab/delab-skills")
+        names, problems = plugin_component_names(root)
+        self.assertIn("delab-skills", names)
+        self.assertNotIn(root.name, names)
+        self.assertEqual(problems, [])
+
+    def test_mention_of_repo_name_accepted_regardless_of_checkout_dirname(self):
+        """The fixture's temp dir is never named `delab-skills`; the mention
+        must still resolve via the manifest's `repository` field."""
+        root = self.build_repo("https://github.com/erlichlab/delab-skills")
+        (root / "doc.md").write_text("See `delab-skills` for details.", encoding="utf-8")
+        self.assertEqual(check_all_mentions(root), [])
+
+    def test_misspelt_repo_name_is_still_reported(self):
+        root = self.build_repo("https://github.com/erlichlab/delab-skills")
+        (root / "doc.md").write_text("See `delab-skils` for details.", encoding="utf-8")
+        problems = check_all_mentions(root)
+        self.assertTrue(any("delab-skils" in p for p in problems))
+
+    def test_non_string_repository_is_reported_not_raised(self):
+        """A plausible typo — `repository` nested under a stray `url` key, or
+        any non-string JSON value — must surface as a normal FAIL, not an
+        AttributeError that aborts the whole checker run before it can report
+        anything else."""
+        root = self.build_repo({"url": "https://github.com/erlichlab/delab-skills"})
+        names, problems = plugin_component_names(root)
+        self.assertEqual(names, set())
+        self.assertTrue(any("repository" in p and "string" in p for p in problems))
+
+    def test_non_string_repository_does_not_crash_check_all_mentions(self):
+        root = self.build_repo(["https://github.com/erlichlab/delab-skills"])
+        problems = check_all_mentions(root)
+        self.assertTrue(any("repository" in p and "string" in p for p in problems))
 
 
 class CheckSkillDescription(unittest.TestCase):

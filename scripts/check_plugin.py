@@ -462,22 +462,50 @@ def check_command_mentions(root: Path, available: set[str]) -> list[str]:
     return problems
 
 
-def plugin_component_names(root: Path) -> set[str]:
+def repository_basename(url: str) -> str:
+    """The repo name a code host's URL ends in, e.g. `delab-skills` from
+    `https://github.com/erlichlab/delab-skills`.
+    """
+    return url.rstrip("/").rsplit("/", 1)[-1].removesuffix(".git")
+
+
+def plugin_component_names(root: Path) -> tuple[set[str], list[str]]:
     """Every name a doc may legitimately refer to: commands, skills, agents.
 
     Plus the repository itself, which prose names as often as it names a
-    component.
+    component. The repo's name comes from `repository` in each plugin's own
+    manifest, not from the checkout directory — the directory is the repo's
+    name only by coincidence (CI happens to check out into `delab-skills/`),
+    and a subagent's worktree or any differently named clone breaks that.
+
+    Returns (names, problems) rather than raising: `repository` is free-form
+    JSON from a manifest we don't otherwise validate here, and a non-string
+    value (a list, a number, a `{"url": ...}` typo) must be reported like any
+    other bad input rather than crash the whole checker run before it can
+    report anything else (principle 9).
     """
     data, _ = load_json(root / ".claude-plugin" / "marketplace.json")
-    names = {root.name}
+    names = set()
+    problems = []
     for entry in (data or {}).get("plugins", []):
         if not entry.get("source"):
             continue
         plugin_dir = (root / entry["source"]).resolve()
+        manifest_path = plugin_dir / ".claude-plugin" / "plugin.json"
+        manifest, _ = load_json(manifest_path)
+        repository = (manifest or {}).get("repository")
+        if repository is not None:
+            if isinstance(repository, str):
+                names.add(repository_basename(repository))
+            else:
+                problems.append(
+                    f"{manifest_path}: `repository` must be a string, got "
+                    f"{type(repository).__name__}"
+                )
         names |= {path.stem for path in plugin_dir.glob("commands/*.md")}
         names |= {path.parent.name for path in plugin_dir.glob("skills/*/SKILL.md")}
         names |= {path.stem for path in plugin_dir.glob("agents/*.md")}
-    return names
+    return names, problems
 
 
 def check_all_mentions(root: Path) -> list[str]:
@@ -486,7 +514,8 @@ def check_all_mentions(root: Path) -> list[str]:
     The names must be pooled before matching: checking each plugin separately
     would report every other plugin's commands as missing.
     """
-    return check_command_mentions(root, plugin_component_names(root))
+    names, problems = plugin_component_names(root)
+    return problems + check_command_mentions(root, names)
 
 
 def check_links(root: Path) -> list[str]:
