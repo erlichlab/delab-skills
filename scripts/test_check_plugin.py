@@ -14,6 +14,7 @@ standard library — no environment to create on a bare clone.
 
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -24,10 +25,16 @@ from check_plugin import (
     check_agent_isolation,
     check_command_mentions,
     check_frontmatter_yaml,
+    check_links,
+    check_manifest_paths,
+    check_marketplace,
+    check_plugin_root_refs,
     check_skill_description,
     check_skill_frontmatter,
     check_skill_name,
+    load_json,
     parse_frontmatter,
+    slugify,
 )
 
 
@@ -304,6 +311,221 @@ class CheckSkillDescription(unittest.TestCase):
         self.assertEqual(check_skill_description("x" * SKILL_DESCRIPTION_MAX), [])
         over = check_skill_description("x" * (SKILL_DESCRIPTION_MAX + 1))
         self.assertTrue(any("caps it at 1024" in p for p in over))
+
+
+class CheckManifestPaths(unittest.TestCase):
+    """The !13 breakage: a directory value in `commands`/`agents` makes
+    `/plugin install` fail for every user, with no error anywhere else."""
+
+    def make_plugin_dir(self) -> Path:
+        return Path(tempfile.mkdtemp())
+
+    def test_directory_value_is_the_13_breakage(self):
+        """`"agents": "./agents"` is exactly what broke installs in !13."""
+        plugin_dir = self.make_plugin_dir()
+        (plugin_dir / "agents").mkdir()
+        problems = check_manifest_paths(plugin_dir, {"agents": "./agents"})
+        self.assertTrue(any("a directory" in p for p in problems))
+
+    def test_list_of_existing_md_files_passes(self):
+        plugin_dir = self.make_plugin_dir()
+        commands_dir = plugin_dir / "commands"
+        commands_dir.mkdir()
+        (commands_dir / "foo.md").write_text("# Foo\n", encoding="utf-8")
+        (commands_dir / "bar.md").write_text("# Bar\n", encoding="utf-8")
+        manifest = {"commands": ["commands/foo.md", "commands/bar.md"]}
+        self.assertEqual(check_manifest_paths(plugin_dir, manifest), [])
+
+    def test_listed_md_file_that_does_not_exist_is_reported(self):
+        plugin_dir = self.make_plugin_dir()
+        manifest = {"commands": ["commands/missing.md"]}
+        problems = check_manifest_paths(plugin_dir, manifest)
+        self.assertTrue(any("does not exist" in p for p in problems))
+
+    def test_field_absent_is_not_an_error(self):
+        """Dropping the field entirely is the documented fix — it must pass."""
+        self.assertEqual(check_manifest_paths(self.make_plugin_dir(), {}), [])
+
+
+class Slugify(unittest.TestCase):
+    def test_lowercases_and_hyphenates_spaces(self):
+        self.assertEqual(slugify("## Some Heading"), "some-heading")
+
+    def test_strips_punctuation(self):
+        self.assertEqual(slugify("# It's a Test: v2!"), "its-a-test-v2")
+
+    def test_underscores_fold_into_hyphens_like_whitespace(self):
+        """`slugify` has no separate underscore case: `[\\s_]+` folds an
+        underscore run together with whitespace into one hyphen, same as a
+        space would. A literal hyphen in the heading is left alone."""
+        self.assertEqual(slugify("# check_manifest_paths"), "check-manifest-paths")
+        self.assertEqual(slugify("# already-hyphenated"), "already-hyphenated")
+
+
+class CheckLinks(unittest.TestCase):
+    def make_root(self) -> Path:
+        return Path(tempfile.mkdtemp())
+
+    def test_missing_file_is_reported(self):
+        root = self.make_root()
+        (root / "doc.md").write_text("See [gone](nonexistent.md).\n", encoding="utf-8")
+        problems = check_links(root)
+        self.assertTrue(any("dead link" in p for p in problems))
+
+    def test_missing_anchor_is_reported(self):
+        root = self.make_root()
+        (root / "other.md").write_text("# Real Heading\n", encoding="utf-8")
+        (root / "doc.md").write_text(
+            "See [it](other.md#not-a-real-heading).\n", encoding="utf-8"
+        )
+        problems = check_links(root)
+        self.assertTrue(any("dead anchor" in p for p in problems))
+
+    def test_valid_link_with_anchor_passes(self):
+        root = self.make_root()
+        (root / "other.md").write_text("# Real Heading\n", encoding="utf-8")
+        (root / "doc.md").write_text(
+            "See [it](other.md#real-heading).\n", encoding="utf-8"
+        )
+        self.assertEqual(check_links(root), [])
+
+    def test_external_and_mailto_links_are_not_checked(self):
+        root = self.make_root()
+        (root / "doc.md").write_text(
+            "See [x](https://example.com/nope) or [y](mailto:a@b.com).\n",
+            encoding="utf-8",
+        )
+        self.assertEqual(check_links(root), [])
+
+
+class CheckPluginRootRefs(unittest.TestCase):
+    """`${CLAUDE_PLUGIN_ROOT}/...` paths a command tells the agent to read."""
+
+    def write_command(self, plugin_dir: Path, text: str) -> None:
+        commands_dir = plugin_dir / "commands"
+        commands_dir.mkdir(parents=True, exist_ok=True)
+        (commands_dir / "cmd.md").write_text(text, encoding="utf-8")
+
+    def test_missing_target_is_reported(self):
+        plugin_dir = Path(tempfile.mkdtemp())
+        self.write_command(
+            plugin_dir, "Read ${CLAUDE_PLUGIN_ROOT}/skills/demo/SKILL.md now.\n"
+        )
+        problems = check_plugin_root_refs(plugin_dir)
+        self.assertTrue(any("skills/demo/SKILL.md does not exist" in p for p in problems))
+
+    def test_existing_target_passes(self):
+        plugin_dir = Path(tempfile.mkdtemp())
+        skill_dir = plugin_dir / "skills" / "demo"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text("---\nname: demo\n---\n", encoding="utf-8")
+        self.write_command(
+            plugin_dir, "Read ${CLAUDE_PLUGIN_ROOT}/skills/demo/SKILL.md now.\n"
+        )
+        self.assertEqual(check_plugin_root_refs(plugin_dir), [])
+
+    def test_placeholder_ref_checks_only_the_parent_directory(self):
+        """`languages/<lang>.md` is filled in by the agent, so only
+        `languages/` — not the literal placeholder file — must exist."""
+        plugin_dir = Path(tempfile.mkdtemp())
+        (plugin_dir / "languages").mkdir(parents=True)
+        self.write_command(
+            plugin_dir, "Read ${CLAUDE_PLUGIN_ROOT}/languages/<lang>.md now.\n"
+        )
+        self.assertEqual(check_plugin_root_refs(plugin_dir), [])
+
+
+class LoadJson(unittest.TestCase):
+    def test_missing_file_is_reported(self):
+        data, problems = load_json(Path(tempfile.mkdtemp()) / "gone.json")
+        self.assertIsNone(data)
+        self.assertTrue(any("missing" in p for p in problems))
+
+    def test_invalid_json_is_reported(self):
+        path = Path(tempfile.mkdtemp()) / "bad.json"
+        path.write_text("{not valid json", encoding="utf-8")
+        data, problems = load_json(path)
+        self.assertIsNone(data)
+        self.assertTrue(any("invalid JSON" in p for p in problems))
+
+    def test_valid_json_parses_with_no_problems(self):
+        path = Path(tempfile.mkdtemp()) / "good.json"
+        path.write_text('{"name": "demo"}', encoding="utf-8")
+        data, problems = load_json(path)
+        self.assertEqual(data, {"name": "demo"})
+        self.assertEqual(problems, [])
+
+
+class CheckMarketplace(unittest.TestCase):
+    """The catalog (marketplace.json) and every manifest it points at."""
+
+    def make_root(self) -> Path:
+        return Path(tempfile.mkdtemp())
+
+    def write_marketplace(self, root: Path, data: dict) -> None:
+        marketplace_dir = root / ".claude-plugin"
+        marketplace_dir.mkdir(parents=True, exist_ok=True)
+        (marketplace_dir / "marketplace.json").write_text(
+            json.dumps(data), encoding="utf-8"
+        )
+
+    def make_valid_plugin(self, root: Path, name: str) -> None:
+        """A minimal plugin with no problems of its own to report."""
+        plugin_dir = root / name
+        (plugin_dir / ".claude-plugin").mkdir(parents=True)
+        (plugin_dir / ".claude-plugin" / "plugin.json").write_text(
+            json.dumps({"name": name, "description": "A demo plugin."}),
+            encoding="utf-8",
+        )
+        skill_dir = plugin_dir / "skills" / "demo"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(
+            "---\nname: demo\ndescription: A demo.\n---\n\nBody.\n", encoding="utf-8"
+        )
+
+    def test_missing_marketplace_name_is_reported(self):
+        root = self.make_root()
+        self.write_marketplace(root, {"plugins": []})
+        problems = check_marketplace(root)
+        self.assertTrue(any("missing `name`" in p for p in problems))
+
+    def test_entry_missing_source_is_reported(self):
+        root = self.make_root()
+        self.write_marketplace(
+            root, {"name": "cat", "plugins": [{"name": "demo"}]}
+        )
+        problems = check_marketplace(root)
+        self.assertTrue(any("needs `name` and `source`" in p for p in problems))
+
+    def test_source_that_is_not_a_directory_is_reported(self):
+        root = self.make_root()
+        self.write_marketplace(
+            root,
+            {"name": "cat", "plugins": [{"name": "demo", "source": "./nope"}]},
+        )
+        problems = check_marketplace(root)
+        self.assertTrue(any("is not a directory" in p for p in problems))
+
+    def test_directory_name_mismatch_is_reported(self):
+        root = self.make_root()
+        self.make_valid_plugin(root, "actual-dir")
+        self.write_marketplace(
+            root,
+            {
+                "name": "cat",
+                "plugins": [{"name": "demo", "source": "./actual-dir"}],
+            },
+        )
+        problems = check_marketplace(root)
+        self.assertTrue(any("directory name and plugin name must match" in p for p in problems))
+
+    def test_valid_marketplace_and_plugin_pass(self):
+        root = self.make_root()
+        self.make_valid_plugin(root, "demo")
+        self.write_marketplace(
+            root, {"name": "cat", "plugins": [{"name": "demo", "source": "./demo"}]}
+        )
+        self.assertEqual(check_marketplace(root), [])
 
 
 if __name__ == "__main__":
