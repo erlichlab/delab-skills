@@ -308,6 +308,37 @@ class HeadingAnchors(unittest.TestCase):
         text = "```python\n# not a heading\n```\n\n# Load Data\n"
         self.assertEqual(heading_anchors(text), {"load-data"})
 
+    def test_mismatched_fence_type_inside_does_not_close_the_outer_fence(self):
+        """A ``` example nested in a ~~~ fence must not toggle the state off."""
+        text = (
+            "# Real Heading\n\n"
+            "~~~text\n"
+            "example:\n"
+            "```python\n"
+            "# load data\n"
+            "```\n"
+            "~~~\n"
+        )
+        self.assertEqual(heading_anchors(text), {"real-heading"})
+
+    def test_shorter_fence_of_the_same_type_inside_does_not_close_the_outer_fence(self):
+        """CommonMark requires a closer at least as long as its opener."""
+        text = (
+            "# Real Heading\n\n"
+            "````text\n"
+            "example:\n"
+            "```python\n"
+            "# load data\n"
+            "```\n"
+            "````\n"
+        )
+        self.assertEqual(heading_anchors(text), {"real-heading"})
+
+    def test_unclosed_fence_swallows_headings_after_it(self):
+        """CommonMark: an unterminated fence runs to end of file."""
+        text = "```python\n# load data\n\n# Load Data\n"
+        self.assertEqual(heading_anchors(text), set())
+
 
 class CheckLinksFencedAnchors(unittest.TestCase):
     """Regression for issue #8: a fenced-code comment must not satisfy a link."""

@@ -137,6 +137,30 @@ def slugify(heading: str) -> str:
     return re.sub(r"[\s_]+", "-", text)
 
 
+def _fenced_lines(lines: list[str]) -> list[bool]:
+    """Whether each line sits inside a fenced code block.
+
+    A closer only ends the block it belongs to: CommonMark requires it to use
+    the *same* character as its opener and be *at least as long*. A shorter or
+    differently-typed fence-looking line nested inside (a ```python example
+    inside a ~~~ fence, say) is ordinary content, not a toggle — so this tracks
+    the open delimiter's (char, length) rather than a bare on/off flag.
+    """
+    in_fence = []
+    opener: tuple[str, int] | None = None
+    for line in lines:
+        match = FENCE.match(line)
+        if opener is None:
+            if match:
+                opener = (match.group(1)[0], len(match.group(1)))
+            in_fence.append(match is not None)
+            continue
+        if match and match.group(1)[0] == opener[0] and len(match.group(1)) >= opener[1]:
+            opener = None
+        in_fence.append(True)
+    return in_fence
+
+
 def heading_anchors(text: str) -> set[str]:
     """Slugs of every heading in text, skipping lines inside fenced code blocks.
 
@@ -145,14 +169,13 @@ def heading_anchors(text: str) -> set[str]:
     link to a heading that does not exist, and the dead anchor passes silently
     (principle 9).
     """
-    in_fence = False
-    slugs = set()
-    for line in text.splitlines():
-        if FENCE.match(line):
-            in_fence = not in_fence
-        elif not in_fence and line.startswith("#"):
-            slugs.add(slugify(line))
-    return slugs
+    lines = text.splitlines()
+    fenced = _fenced_lines(lines)
+    return {
+        slugify(line)
+        for line, is_fenced in zip(lines, fenced)
+        if not is_fenced and line.startswith("#")
+    }
 
 
 def anchors(path: Path) -> set[str]:
