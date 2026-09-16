@@ -321,9 +321,10 @@ class PluginComponentNames(unittest.TestCase):
 
     def test_repo_name_comes_from_manifest_not_checkout_dirname(self):
         root = self.build_repo("https://github.com/erlichlab/delab-skills")
-        names = plugin_component_names(root)
+        names, problems = plugin_component_names(root)
         self.assertIn("delab-skills", names)
         self.assertNotIn(root.name, names)
+        self.assertEqual(problems, [])
 
     def test_mention_of_repo_name_accepted_regardless_of_checkout_dirname(self):
         """The fixture's temp dir is never named `delab-skills`; the mention
@@ -337,6 +338,21 @@ class PluginComponentNames(unittest.TestCase):
         (root / "doc.md").write_text("See `delab-skils` for details.", encoding="utf-8")
         problems = check_all_mentions(root)
         self.assertTrue(any("delab-skils" in p for p in problems))
+
+    def test_non_string_repository_is_reported_not_raised(self):
+        """A plausible typo — `repository` nested under a stray `url` key, or
+        any non-string JSON value — must surface as a normal FAIL, not an
+        AttributeError that aborts the whole checker run before it can report
+        anything else."""
+        root = self.build_repo({"url": "https://github.com/erlichlab/delab-skills"})
+        names, problems = plugin_component_names(root)
+        self.assertEqual(names, set())
+        self.assertTrue(any("repository" in p and "string" in p for p in problems))
+
+    def test_non_string_repository_does_not_crash_check_all_mentions(self):
+        root = self.build_repo(["https://github.com/erlichlab/delab-skills"])
+        problems = check_all_mentions(root)
+        self.assertTrue(any("repository" in p and "string" in p for p in problems))
 
 
 class CheckSkillDescription(unittest.TestCase):
