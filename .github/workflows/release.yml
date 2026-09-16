@@ -45,11 +45,18 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
+          # `git tag` itself can fail (broken checkout); capture that
+          # separately, since a swallowed failure here would substitute
+          # empty output, making tag-exists correctly-from-its-own-view
+          # report "not found" and proceed to release as if the tag were
+          # confirmed absent — the same silent-swallow bug as the current-tag
+          # step above, one command upstream.
+          existing_tags=$(git tag) || exit 1
           # tag-exists's exit code has three meanings, not two — see
           # release_version.py's module docstring — so this must not treat
           # every nonzero code as "confirmed absent, go ahead and release".
           status=0
-          python3 scripts/release_version.py tag-exists "$TAG" $(git tag) || status=$?
+          python3 scripts/release_version.py tag-exists "$TAG" $existing_tags || status=$?
           if [ "$status" -eq 0 ]; then
             echo "$TAG already released; nothing to do."
           elif [ "$status" -eq 1 ]; then
