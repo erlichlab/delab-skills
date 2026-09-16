@@ -462,18 +462,32 @@ def check_command_mentions(root: Path, available: set[str]) -> list[str]:
     return problems
 
 
+def repository_basename(url: str) -> str:
+    """The repo name a code host's URL ends in, e.g. `delab-skills` from
+    `https://github.com/erlichlab/delab-skills`.
+    """
+    return url.rstrip("/").rsplit("/", 1)[-1].removesuffix(".git")
+
+
 def plugin_component_names(root: Path) -> set[str]:
     """Every name a doc may legitimately refer to: commands, skills, agents.
 
     Plus the repository itself, which prose names as often as it names a
-    component.
+    component. The repo's name comes from `repository` in each plugin's own
+    manifest, not from the checkout directory — the directory is the repo's
+    name only by coincidence (CI happens to check out into `delab-skills/`),
+    and a subagent's worktree or any differently named clone breaks that.
     """
     data, _ = load_json(root / ".claude-plugin" / "marketplace.json")
-    names = {root.name}
+    names = set()
     for entry in (data or {}).get("plugins", []):
         if not entry.get("source"):
             continue
         plugin_dir = (root / entry["source"]).resolve()
+        manifest, _ = load_json(plugin_dir / ".claude-plugin" / "plugin.json")
+        repository = (manifest or {}).get("repository")
+        if repository:
+            names.add(repository_basename(repository))
         names |= {path.stem for path in plugin_dir.glob("commands/*.md")}
         names |= {path.parent.name for path in plugin_dir.glob("skills/*/SKILL.md")}
         names |= {path.stem for path in plugin_dir.glob("agents/*.md")}
