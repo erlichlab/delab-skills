@@ -24,9 +24,11 @@ from check_plugin import (
     check_agent_isolation,
     check_command_mentions,
     check_frontmatter_yaml,
+    check_links,
     check_skill_description,
     check_skill_frontmatter,
     check_skill_name,
+    heading_anchors,
     parse_frontmatter,
 )
 
@@ -293,6 +295,37 @@ class CheckCommandMentions(unittest.TestCase):
         worktree.mkdir(parents=True)
         (worktree / "stale.md").write_text("`/delab-gone`", encoding="utf-8")
         self.assertEqual(check_command_mentions(root, names), [])
+
+
+class HeadingAnchors(unittest.TestCase):
+    """A `#` line inside a fenced code block is a comment, not a heading."""
+
+    def test_fenced_comment_is_not_an_anchor(self):
+        text = "# Real Heading\n\n```python\n# load data\n```\n"
+        self.assertEqual(heading_anchors(text), {"real-heading"})
+
+    def test_heading_after_a_closed_fence_still_counts(self):
+        text = "```python\n# not a heading\n```\n\n# Load Data\n"
+        self.assertEqual(heading_anchors(text), {"load-data"})
+
+
+class CheckLinksFencedAnchors(unittest.TestCase):
+    """Regression for issue #8: a fenced-code comment must not satisfy a link."""
+
+    def build(self, other_body: str, link_target: str) -> Path:
+        root = Path(tempfile.mkdtemp())
+        (root / "other.md").write_text(other_body, encoding="utf-8")
+        (root / "doc.md").write_text(f"[see]({link_target})\n", encoding="utf-8")
+        return root
+
+    def test_link_to_fenced_comment_only_anchor_is_dead(self):
+        root = self.build("```python\n# load data\n```\n", "other.md#load-data")
+        problems = check_links(root)
+        self.assertTrue(any("dead anchor" in p for p in problems))
+
+    def test_link_to_real_heading_passes(self):
+        root = self.build("# Load Data\n", "other.md#load-data")
+        self.assertEqual(check_links(root), [])
 
 
 class CheckSkillDescription(unittest.TestCase):

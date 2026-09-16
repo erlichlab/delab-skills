@@ -25,6 +25,9 @@ from pathlib import Path
 # Markdown inline links: [text](target). Reference-style links and bare URLs in
 # angle brackets are not used in this repo.
 LINK = re.compile(r"\[[^\]]*\]\(([^)\s]+)\)")
+# A fenced code block delimiter (``` or ~~~, CommonMark allows either, indented
+# up to 3 spaces). Toggles whether a `#` line inside is a heading or a comment.
+FENCE = re.compile(r"\A {0,3}(`{3,}|~{3,})")
 # ${CLAUDE_PLUGIN_ROOT}/... paths that a command file tells the agent to read.
 PLUGIN_ROOT_REF = re.compile(r"\$\{CLAUDE_PLUGIN_ROOT\}/([A-Za-z0-9_./<>-]+)")
 FRONTMATTER = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
@@ -134,12 +137,26 @@ def slugify(heading: str) -> str:
     return re.sub(r"[\s_]+", "-", text)
 
 
+def heading_anchors(text: str) -> set[str]:
+    """Slugs of every heading in text, skipping lines inside fenced code blocks.
+
+    A `#` line such as `# load data` inside a ```python fence is a code comment,
+    not a heading. Without this, a language guide's fenced comment satisfies a
+    link to a heading that does not exist, and the dead anchor passes silently
+    (principle 9).
+    """
+    in_fence = False
+    slugs = set()
+    for line in text.splitlines():
+        if FENCE.match(line):
+            in_fence = not in_fence
+        elif not in_fence and line.startswith("#"):
+            slugs.add(slugify(line))
+    return slugs
+
+
 def anchors(path: Path) -> set[str]:
-    return {
-        slugify(line)
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if line.startswith("#")
-    }
+    return heading_anchors(path.read_text(encoding="utf-8"))
 
 
 def check_marketplace(root: Path) -> list[str]:
