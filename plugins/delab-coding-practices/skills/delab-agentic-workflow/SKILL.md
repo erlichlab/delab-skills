@@ -211,7 +211,7 @@ Pick the dev method from the issue's **type**:
 
 - **`infrastructure` → test-driven development.** Write a failing test that
   captures the acceptance criteria, watch it fail, implement until green
-  (principle 6).
+  (principle 7).
 - **`data-science` → synthetic-data-first (test-driven data science):**
   1. Generate synthetic data with **known ground-truth** parameters.
   2. Write a test asserting the pipeline **recovers** those parameters (within
@@ -231,7 +231,7 @@ and the branch, so a reviewer can find it.
 
 **Stay in your sandbox.** Operate only within the repos assigned to you. Do not
 read or write outside them, do not touch real data or secrets beyond what the
-issue requires (principle 7), and confirm before any destructive or irreversible
+issue requires (principle 8), and confirm before any destructive or irreversible
 command. Use the scoped GitLab token in your environment for issues, MRs, and
 pushes — it commits and pushes as the bot identity; never print, log, or commit
 it, and act only on the project it is scoped to.
