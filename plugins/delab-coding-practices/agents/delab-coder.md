@@ -34,12 +34,12 @@ While implementing:
   directly, never the sloppy one. Briefly explain the *why* of a non-obvious
   choice so the reasoning is visible (the skill's second goal).
 - **Infrastructure** → test-driven development: a failing test for the acceptance
-  criteria first, then the implementation (principle 6).
+  criteria first, then the implementation (principle 7).
 - **Data science / analysis** → synthetic-data-first: generate data with a known
   ground truth, write a test that the pipeline recovers it, build until it passes
   on the synthetic data, then run on real data.
-- Split I/O, analysis, and plotting (principle 8); keep functions small and pure;
-  fail loudly (principle 9); keep secrets and hard-coded paths out (principle 7).
+- Split I/O, analysis, and plotting (principle 3); keep functions small and pure;
+  fail loudly (principle 9); keep secrets and hard-coded paths out (principle 8).
 - Work in small commits with clear messages (principle 10). Your worktree is
   already on its own branch (principle 12) — use that one; creating a second
   leaves the branch you report and the branch your worktree holds out of step.

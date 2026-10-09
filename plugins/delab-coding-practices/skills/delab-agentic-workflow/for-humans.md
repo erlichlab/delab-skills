@@ -74,7 +74,7 @@ Each work item becomes a durable record — a GitLab issue, or a file in the rep
 - Issues are **traceable** — every branch and merge request ties back to one, so
   it's clear why each change exists.
 
-Keep work items **small and independently deliverable** — this is principle 5
+Keep work items **small and independently deliverable** — this is principle 4
 (small functions) one level up. Small items are easier to specify, review, and
 parallelize, and agents do markedly better on a tight scope than on a sprawling
 one.
@@ -96,13 +96,13 @@ reviewer subagents**:
 The development method depends on what you're building:
 
 - **Infrastructure** (tools, plumbing, pipelines' scaffolding) → **standard TDD**:
-  write a failing test for the acceptance criteria, then implement (principle 6).
+  write a failing test for the acceptance criteria, then implement (principle 7).
 - **Data science** (an analysis pipeline) → **synthetic data first**. Generate
   data with a *known ground truth*, write a test that the pipeline recovers it,
   then build the analysis until it does — **test-driven data science**. Real data
   has no answer key, so on real data you can't tell a bug from a discovery;
   synthetic data *is* your answer key. (This is the analysis-scale version of the
-  synthetic-fixtures corollary under principle 6.)
+  synthetic-fixtures corollary under principle 7.)
 
 ## Sandbox the agent
 
@@ -117,7 +117,7 @@ anywhere can do real damage from a single bad command.
   `bubblewrap`/`firejail` exist but the lab hasn't vetted them — treat them as
   options to evaluate, not a recommendation.
 - Regardless of sandbox: keep real data and secrets out of the agent's reach
-  (principle 7), and confirm before anything destructive or irreversible.
+  (principle 8), and confirm before anything destructive or irreversible.
 
 ## Give the agent its own GitLab identity and a scoped token
 
@@ -150,7 +150,7 @@ and role, not scope:
   open/update MRs. Leave merging into protected `main` to a Maintainer (you) —
   which matches the review gate: the agent proposes, a human merges.
 - **Short expiry, and rotate.** Put the token in an environment variable or the
-  git credential store; never commit it (principle 7), and revoke it when the bot
+  git credential store; never commit it (principle 8), and revoke it when the bot
   is done.
 
 Scope cheat-sheet (GitLab):

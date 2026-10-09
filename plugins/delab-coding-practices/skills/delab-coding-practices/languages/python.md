@@ -83,36 +83,108 @@ trials = pd.read_csv(path)
 rt = mean_rt(trials)          # pure, deterministic, testable
 ```
 
-## 3. Cache expensive local results
+## 3. Separate I/O, analysis, and plotting
 
-Cache to disk keyed on inputs so unchanged work isn't repeated. `joblib.Memory`
-handles the hashing and invalidation for you.
+Three layers, three functions: load the data, compute on it, draw it.
 
-❌ **Before** — recomputes a 20-minute step on every run
-
-```python
-def load_features(session_id):
-    raw = read_raw(session_id)          # slow every single time
-    return extract_features(raw)        # slow every single time
-```
-
-✅ **After** — memoized to disk, keyed on the arguments
+❌ **Before** — one function loads, computes, and plots
 
 ```python
-from joblib import Memory
-
-memory = Memory(location=".cache", verbose=0)   # .cache is git-ignored
-
-@memory.cache
-def load_features(session_id: str) -> pd.DataFrame:
-    raw = read_raw(session_id)
-    return extract_features(raw)
+def behavior_figure(subjid):
+    df = pd.read_csv(f"/data/{subjid}.csv")          # I/O + hard-coded path
+    perf = df.groupby("session")["correct"].mean()   # analysis
+    plt.figure()
+    plt.plot(perf)                                    # plotting — own figure only
+    plt.savefig(f"{subjid}.png")
 ```
 
-Change the arguments (or the function body) and joblib recomputes; otherwise it
-returns the cached result in milliseconds.
+You can't test the analysis without a file, the path exists on one machine, and
+the plot can never be one panel of a bigger figure.
 
-## 4. Map / vectorize instead of hand-rolled loops
+✅ **After** — I/O, analysis, and a plot that accepts an `ax`
+
+```python
+# --- I/O layer: load, with cache-or-compute (principle 6) ---
+def get_behavior(subjid: str) -> pd.DataFrame:
+    data = load_from_cache(subjid)
+    if data is None:                       # cache miss: do the work once, save it
+        data = compute_behavior(subjid)
+        save_to_cache(subjid, data)
+    return data
+
+# --- analysis layer: pure, testable, no I/O or plotting ---
+def session_performance(trials: pd.DataFrame) -> pd.Series:
+    return trials.groupby("session")["correct"].mean()
+
+# --- plotting layer: takes an ax, makes its own only if none is given ---
+def plot_behavior(subjid: str, ax: plt.Axes | None = None) -> plt.Axes:
+    perf = session_performance(get_behavior(subjid))
+    if ax is None:
+        _, ax = plt.subplots()
+    ax.plot(perf.index, perf.values, marker="o")
+    ax.set(xlabel="session", ylabel="P(correct)")
+    return ax
+```
+
+Because `plot_behavior` accepts an `ax`, single-subject panels compose into a
+grid with no changes:
+
+```python
+fig, axs = plt.subplots(1, 3, sharey=True)
+for ax, subj in zip(axs, subjects):
+    plot_behavior(subj, ax=ax)
+```
+
+> The manual cache-or-compute branch in `get_behavior` is exactly what
+> `joblib.Memory` (principle 6) automates — reach for the hand-written version
+> only when you need custom cache logic.
+
+**Inject pre-fetched data.** Give the I/O function an optional `data` argument: if
+the caller passes already-loaded data, use it and skip I/O entirely; otherwise
+fall back to cache-or-fetch. Now one bulk query replaces N per-subject calls, and
+the same code runs offline or in a test with no network.
+
+```python
+def get_behavior(subjid: str, data: pd.DataFrame | None = None) -> pd.DataFrame:
+    if data is not None:                       # caller pre-fetched: no I/O, just select
+        return data[data["subjid"] == subjid]
+    cached = load_from_cache(subjid)
+    if cached is None:
+        cached = compute_behavior(subjid)
+        save_to_cache(subjid, cached)
+    return cached
+
+all_trials = fetch_all_behavior(subjids)       # one bulk query, not len(subjids)
+perf = {s: session_performance(get_behavior(s, data=all_trials)) for s in subjids}
+```
+
+## 4. Small, single-purpose functions
+
+❌ **Before** — one function loads, cleans, models, and plots
+
+```python
+def do_everything(path):
+    df = pd.read_csv(path)
+    df = df[df.rt > 0]
+    df["log_rt"] = np.log(df.rt)
+    model = smf.ols("log_rt ~ coherence", df).fit()
+    plt.scatter(df.coherence, df.log_rt); plt.plot(...)
+    return model
+```
+
+✅ **After** — small, named, composable steps
+
+```python
+def load_trials(path: Path) -> pd.DataFrame: ...
+def clean(trials: pd.DataFrame) -> pd.DataFrame: ...
+def fit_rt_model(trials: pd.DataFrame) -> RegressionResults: ...
+def plot_rt(trials: pd.DataFrame, ax) -> None: ...
+
+trials = clean(load_trials(path))
+model = fit_rt_model(trials)
+```
+
+## 5. Map / vectorize instead of hand-rolled loops
 
 ❌ **Before** — manual pre-allocate-and-fill loop
 
@@ -172,33 +244,36 @@ body. (If you'd rather not have `fit_subject` reach for the global `big_df`,
 pass it in and bind it: `map(partial(fit_subject, big_df), subjids)` — see
 principle 2.)
 
-## 5. Small, single-purpose functions
+## 6. Cache expensive local results
 
-❌ **Before** — one function loads, cleans, models, and plots
+Cache to disk keyed on inputs so unchanged work isn't repeated. `joblib.Memory`
+handles the hashing and invalidation for you.
 
-```python
-def do_everything(path):
-    df = pd.read_csv(path)
-    df = df[df.rt > 0]
-    df["log_rt"] = np.log(df.rt)
-    model = smf.ols("log_rt ~ coherence", df).fit()
-    plt.scatter(df.coherence, df.log_rt); plt.plot(...)
-    return model
-```
-
-✅ **After** — small, named, composable steps
+❌ **Before** — recomputes a 20-minute step on every run
 
 ```python
-def load_trials(path: Path) -> pd.DataFrame: ...
-def clean(trials: pd.DataFrame) -> pd.DataFrame: ...
-def fit_rt_model(trials: pd.DataFrame) -> RegressionResults: ...
-def plot_rt(trials: pd.DataFrame, ax) -> None: ...
-
-trials = clean(load_trials(path))
-model = fit_rt_model(trials)
+def load_features(session_id):
+    raw = read_raw(session_id)          # slow every single time
+    return extract_features(raw)        # slow every single time
 ```
 
-## 6. Test-driven development
+✅ **After** — memoized to disk, keyed on the arguments
+
+```python
+from joblib import Memory
+
+memory = Memory(location=".cache", verbose=0)   # .cache is git-ignored
+
+@memory.cache
+def load_features(session_id: str) -> pd.DataFrame:
+    raw = read_raw(session_id)
+    return extract_features(raw)
+```
+
+Change the arguments (or the function body) and joblib recomputes; otherwise it
+returns the cached result in milliseconds.
+
+## 7. Test-driven development
 
 Write the test first with `pytest`, watch it fail, then implement.
 
@@ -221,7 +296,7 @@ Every bug fixed gets a regression test that reproduces it first.
 Never point a test at `/data/...`; construct the minimal input inline or with a
 `pytest` fixture.
 
-## 7. Never store secrets or hard-coded paths
+## 8. Never store secrets or hard-coded paths
 
 ❌ **Before** — credentials and an absolute path baked into source
 
@@ -256,81 +331,6 @@ listing the variable *names* (never values), and add `.env` and `.cache/` to
 > object also beats threading a dozen loose keyword arguments through your
 > functions (principle 2). Don't wrap per-row data or numpy arrays in pydantic
 > models — that's the wrong tool and it will be slow.
-
-## 8. Separate I/O, analysis, and plotting
-
-Three layers, three functions: load the data, compute on it, draw it.
-
-❌ **Before** — one function loads, computes, and plots
-
-```python
-def behavior_figure(subjid):
-    df = pd.read_csv(f"/data/{subjid}.csv")          # I/O + hard-coded path
-    perf = df.groupby("session")["correct"].mean()   # analysis
-    plt.figure()
-    plt.plot(perf)                                    # plotting — own figure only
-    plt.savefig(f"{subjid}.png")
-```
-
-You can't test the analysis without a file, the path exists on one machine, and
-the plot can never be one panel of a bigger figure.
-
-✅ **After** — I/O, analysis, and a plot that accepts an `ax`
-
-```python
-# --- I/O layer: load, with cache-or-compute (principle 3) ---
-def get_behavior(subjid: str) -> pd.DataFrame:
-    data = load_from_cache(subjid)
-    if data is None:                       # cache miss: do the work once, save it
-        data = compute_behavior(subjid)
-        save_to_cache(subjid, data)
-    return data
-
-# --- analysis layer: pure, testable, no I/O or plotting ---
-def session_performance(trials: pd.DataFrame) -> pd.Series:
-    return trials.groupby("session")["correct"].mean()
-
-# --- plotting layer: takes an ax, makes its own only if none is given ---
-def plot_behavior(subjid: str, ax: plt.Axes | None = None) -> plt.Axes:
-    perf = session_performance(get_behavior(subjid))
-    if ax is None:
-        _, ax = plt.subplots()
-    ax.plot(perf.index, perf.values, marker="o")
-    ax.set(xlabel="session", ylabel="P(correct)")
-    return ax
-```
-
-Because `plot_behavior` accepts an `ax`, single-subject panels compose into a
-grid with no changes:
-
-```python
-fig, axs = plt.subplots(1, 3, sharey=True)
-for ax, subj in zip(axs, subjects):
-    plot_behavior(subj, ax=ax)
-```
-
-> The manual cache-or-compute branch in `get_behavior` is exactly what
-> `joblib.Memory` (principle 3) automates — reach for the hand-written version
-> only when you need custom cache logic.
-
-**Inject pre-fetched data.** Give the I/O function an optional `data` argument: if
-the caller passes already-loaded data, use it and skip I/O entirely; otherwise
-fall back to cache-or-fetch. Now one bulk query replaces N per-subject calls, and
-the same code runs offline or in a test with no network.
-
-```python
-def get_behavior(subjid: str, data: pd.DataFrame | None = None) -> pd.DataFrame:
-    if data is not None:                       # caller pre-fetched: no I/O, just select
-        return data[data["subjid"] == subjid]
-    cached = load_from_cache(subjid)
-    if cached is None:
-        cached = compute_behavior(subjid)
-        save_to_cache(subjid, cached)
-    return cached
-
-all_trials = fetch_all_behavior(subjids)       # one bulk query, not len(subjids)
-perf = {s: session_performance(get_behavior(s, data=all_trials)) for s in subjids}
-```
 
 ## 9. Fail loudly
 
@@ -383,7 +383,7 @@ code that's in front of them. The same goes for commit messages.
 Correctness and clarity first. When something really is too slow, **profile
 before you optimize** — `python -m cProfile`, `%timeit` in a notebook,
 `line_profiler` for a hot function, or `py-spy` to sample a running process.
-Usually the fix is caching (principle 3) or vectorizing (principle 4), not
+Usually the fix is caching (principle 6) or vectorizing (principle 5), not
 parallelism.
 
 When you do need parallelism, run it at the coarsest level — one substantial task
@@ -399,7 +399,7 @@ results = Parallel(n_jobs=-1)(delayed(process_trial)(t) for t in all_trials)
 results = Parallel(n_jobs=-1)(delayed(analyze_session)(s) for s in sessions)
 ```
 
-`analyze_session` is a pure per-session function (principle 8), so each worker
+`analyze_session` is a pure per-session function (principle 3), so each worker
 loads its own data once and there's no shared state.
 
 **Threads or processes?** For CPU-bound numeric work use *processes* — CPython's

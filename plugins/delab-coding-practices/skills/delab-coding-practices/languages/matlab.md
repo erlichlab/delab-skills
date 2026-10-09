@@ -74,160 +74,7 @@ trials = readtable(path);                % edge: caller does the I/O
 rt = mean_rt(trials);                    % pure, deterministic, testable
 ```
 
-## 3. Cache expensive local results
-
-Cache to a `.mat` file keyed on the inputs, and only compute on a miss.
-
-❌ **Before** — recomputes a slow step every run
-
-```matlab
-function f = load_features(session_id)
-    f = extract_features(read_raw(session_id));   % slow every time
-end
-```
-
-✅ **After** — cache-or-compute
-
-```matlab
-function features = load_features(session_id)
-    cachefile = fullfile(cachedir(), sprintf('features_%s.mat', session_id));
-    if isfile(cachefile)
-        features = load(cachefile).features;      % reload in ms
-        return
-    end
-    features = extract_features(read_raw(session_id));
-    save(cachefile, 'features');                  % save once
-end
-```
-
-`cachedir()` returns a git-ignored folder. (For in-session reuse of a pure
-function, MATLAB's built-in `memoize` wraps a function handle.)
-
-## 4. Map / vectorize instead of hand-rolled loops
-
-Prefer a vectorized operation, or `arrayfun`/`cellfun` as `map`, over an index
-loop that pre-allocates and fills.
-
-❌ **Before** — manual loop, statistics recomputed each iteration
-
-```matlab
-z = zeros(size(rates));
-for i = 1:numel(rates)
-    z(i) = (rates(i) - mean(rates)) / std(rates);   % mean/std recomputed each iter!
-end
-```
-
-✅ **After** — vectorized
-
-```matlab
-z = (rates - mean(rates)) / std(rates);
-```
-
-For per-group work — fitting a GLM per subject won't get faster, but factoring
-the body into a small function and mapping still wins (testable, reusable):
-
-```matlab
-function s = fit_subject(trials)
-    m = fitglm(trials, 'correct ~ coherence', 'Distribution', 'binomial');
-    s = struct('b', m.Coefficients.Estimate, 'p', m.Coefficients.pValue);
-end
-
-% map fit_subject over per-subject groups
-[gid, subj] = findgroups(big_table.subjid);
-results = arrayfun(@(g) fit_subject(big_table(gid == g, :)), 1:numel(subj));
-```
-
-Now `fit_subject` can be unit-tested on one subject. (`splitapply`/`rowfun` are
-the fully vectorized route when the body fits their shape.)
-
-**Use the map-style functions — they're underused.** Many people reach for a
-`for` loop because `arrayfun`, `cellfun`, and `structfun` feel unfamiliar, but
-they *are* MATLAB's `map` and make the intent obvious (pass `'UniformOutput',
-false` when the result isn't a scalar per element). One exception: `bsxfun` is
-legacy — since R2016b MATLAB expands sizes implicitly, so write `a - mean(a)`,
-not `bsxfun(@minus, a, mean(a))`.
-
-## 5. Small, single-purpose functions
-
-Keep functions small — but MATLAB's *one function per file* rule means a pile of
-tiny public files is its own kind of mess. Two tools resolve the tension:
-
-- **Local functions** for helpers used only within one file: define them after
-  the main function in the same `.m` file. No file explosion, and they stay
-  private to that file.
-- **`+package` folders** to organize the functions that *are* shared, so related
-  helpers group under one namespace (`utils.`, `draw.`).
-
-**Don't** create a `classdef` full of `static` methods just to group functions —
-a `+package` folder does exactly that, without the ceremony.
-
-```matlab
-% fit_rt_model.m — one public function, private helpers as local functions
-function model = fit_rt_model(path)
-    trials = clean(load_trials(path));
-    model  = fit_rt(trials);
-end
-
-function trials = load_trials(path)     % local: visible only in this file
-    trials = readtable(path);
-end
-function trials = clean(trials)
-    trials = trials(trials.rt > 0, :);
-end
-function model = fit_rt(trials)
-    model = fitlm(trials, 'log_rt ~ coherence');
-end
-```
-
-## 6. Test-driven development
-
-Write a test first with `matlab.unittest`, watch it fail, then implement. Run the
-folder with `runtests`.
-
-```matlab
-% tests/test_mean_rt.m — write this BEFORE mean_rt exists
-function tests = test_mean_rt
-    tests = functiontests(localfunctions);
-end
-
-function test_ignores_invalid(testCase)
-    trials = table([1;3;99], logical([1;1;0]), 'VariableNames', {'rt','valid'});
-    verifyEqual(testCase, mean_rt(trials), 2)
-end
-```
-
-```matlab
->> runtests('tests')      % red -> implement mean_rt -> green
-```
-
-**Use synthetic fixtures, not real data.** The test builds its own tiny `table`,
-so it passes on a fresh clone with no lab data present. Never point a test at a
-`/data/...` file.
-
-## 7. Never store secrets or hard-coded paths
-
-❌ **Before** — credentials and an absolute path baked into source
-
-```matlab
-conn = database('spikes', 'admin', 'hunter2');          % secret in git forever
-data = '/Users/jane/Dropbox/lab/data/session.csv';      % one machine only
-```
-
-✅ **After** — read from the environment / configurable roots
-
-```matlab
-db_url    = getenv('LAB_DB_URL');                        % set outside the repo
-assert(~isempty(db_url), 'delab:config', 'set LAB_DB_URL');   % fail loudly (principle 9)
-
-data_root = getenv('LAB_DATA');
-if isempty(data_root), data_root = fullfile(getenv('HOME'), 'data'); end
-session = fullfile(data_root, 'session.csv');
-```
-
-Use `fullfile` (never string-concatenate paths), keep credentials in environment
-variables or a git-ignored config file, and git-ignore the cache directory.
-
-## 8. Separate I/O, analysis, and plotting
+## 3. Separate I/O, analysis, and plotting
 
 Three layers: load the data, compute on it, draw it. A plotting function takes an
 optional axes handle and creates one only if none is given — the elutils
@@ -247,7 +94,7 @@ end
 ✅ **After** — I/O (cache-or-compute), pure analysis, an `ax`-aware plot
 
 ```matlab
-% --- I/O layer: load, with cache-or-compute (principle 3) ---
+% --- I/O layer: load, with cache-or-compute (principle 6) ---
 function data = get_behavior(subjid)
     data = load_from_behavior_cache(subjid);
     if isempty(data)                          % cache miss: do the work once, save it
@@ -305,6 +152,159 @@ perf = arrayfun(@(s) session_performance(get_behavior(s, 'data', all_trials)), .
                 subjids, 'UniformOutput', false);
 ```
 
+## 4. Small, single-purpose functions
+
+Keep functions small — but MATLAB's *one function per file* rule means a pile of
+tiny public files is its own kind of mess. Two tools resolve the tension:
+
+- **Local functions** for helpers used only within one file: define them after
+  the main function in the same `.m` file. No file explosion, and they stay
+  private to that file.
+- **`+package` folders** to organize the functions that *are* shared, so related
+  helpers group under one namespace (`utils.`, `draw.`).
+
+**Don't** create a `classdef` full of `static` methods just to group functions —
+a `+package` folder does exactly that, without the ceremony.
+
+```matlab
+% fit_rt_model.m — one public function, private helpers as local functions
+function model = fit_rt_model(path)
+    trials = clean(load_trials(path));
+    model  = fit_rt(trials);
+end
+
+function trials = load_trials(path)     % local: visible only in this file
+    trials = readtable(path);
+end
+function trials = clean(trials)
+    trials = trials(trials.rt > 0, :);
+end
+function model = fit_rt(trials)
+    model = fitlm(trials, 'log_rt ~ coherence');
+end
+```
+
+## 5. Map / vectorize instead of hand-rolled loops
+
+Prefer a vectorized operation, or `arrayfun`/`cellfun` as `map`, over an index
+loop that pre-allocates and fills.
+
+❌ **Before** — manual loop, statistics recomputed each iteration
+
+```matlab
+z = zeros(size(rates));
+for i = 1:numel(rates)
+    z(i) = (rates(i) - mean(rates)) / std(rates);   % mean/std recomputed each iter!
+end
+```
+
+✅ **After** — vectorized
+
+```matlab
+z = (rates - mean(rates)) / std(rates);
+```
+
+For per-group work — fitting a GLM per subject won't get faster, but factoring
+the body into a small function and mapping still wins (testable, reusable):
+
+```matlab
+function s = fit_subject(trials)
+    m = fitglm(trials, 'correct ~ coherence', 'Distribution', 'binomial');
+    s = struct('b', m.Coefficients.Estimate, 'p', m.Coefficients.pValue);
+end
+
+% map fit_subject over per-subject groups
+[gid, subj] = findgroups(big_table.subjid);
+results = arrayfun(@(g) fit_subject(big_table(gid == g, :)), 1:numel(subj));
+```
+
+Now `fit_subject` can be unit-tested on one subject. (`splitapply`/`rowfun` are
+the fully vectorized route when the body fits their shape.)
+
+**Use the map-style functions — they're underused.** Many people reach for a
+`for` loop because `arrayfun`, `cellfun`, and `structfun` feel unfamiliar, but
+they *are* MATLAB's `map` and make the intent obvious (pass `'UniformOutput',
+false` when the result isn't a scalar per element). One exception: `bsxfun` is
+legacy — since R2016b MATLAB expands sizes implicitly, so write `a - mean(a)`,
+not `bsxfun(@minus, a, mean(a))`.
+
+## 6. Cache expensive local results
+
+Cache to a `.mat` file keyed on the inputs, and only compute on a miss.
+
+❌ **Before** — recomputes a slow step every run
+
+```matlab
+function f = load_features(session_id)
+    f = extract_features(read_raw(session_id));   % slow every time
+end
+```
+
+✅ **After** — cache-or-compute
+
+```matlab
+function features = load_features(session_id)
+    cachefile = fullfile(cachedir(), sprintf('features_%s.mat', session_id));
+    if isfile(cachefile)
+        features = load(cachefile).features;      % reload in ms
+        return
+    end
+    features = extract_features(read_raw(session_id));
+    save(cachefile, 'features');                  % save once
+end
+```
+
+`cachedir()` returns a git-ignored folder. (For in-session reuse of a pure
+function, MATLAB's built-in `memoize` wraps a function handle.)
+
+## 7. Test-driven development
+
+Write a test first with `matlab.unittest`, watch it fail, then implement. Run the
+folder with `runtests`.
+
+```matlab
+% tests/test_mean_rt.m — write this BEFORE mean_rt exists
+function tests = test_mean_rt
+    tests = functiontests(localfunctions);
+end
+
+function test_ignores_invalid(testCase)
+    trials = table([1;3;99], logical([1;1;0]), 'VariableNames', {'rt','valid'});
+    verifyEqual(testCase, mean_rt(trials), 2)
+end
+```
+
+```matlab
+>> runtests('tests')      % red -> implement mean_rt -> green
+```
+
+**Use synthetic fixtures, not real data.** The test builds its own tiny `table`,
+so it passes on a fresh clone with no lab data present. Never point a test at a
+`/data/...` file.
+
+## 8. Never store secrets or hard-coded paths
+
+❌ **Before** — credentials and an absolute path baked into source
+
+```matlab
+conn = database('spikes', 'admin', 'hunter2');          % secret in git forever
+data = '/Users/jane/Dropbox/lab/data/session.csv';      % one machine only
+```
+
+✅ **After** — read from the environment / configurable roots
+
+```matlab
+db_url    = getenv('LAB_DB_URL');                        % set outside the repo
+assert(~isempty(db_url), 'delab:config', 'set LAB_DB_URL');   % fail loudly (principle 9)
+
+data_root = getenv('LAB_DATA');
+if isempty(data_root), data_root = fullfile(getenv('HOME'), 'data'); end
+session = fullfile(data_root, 'session.csv');
+```
+
+Use `fullfile` (never string-concatenate paths), keep credentials in environment
+variables or a git-ignored config file, and git-ignore the cache directory.
+
 ## 9. Fail loudly
 
 ❌ **Before** — a silent fallback hides a real problem
@@ -361,7 +361,7 @@ line.)
 Correctness and clarity first. When something really is too slow, **profile
 before you optimize** — `profile on` / `profile viewer`, or `timeit` and
 `tic`/`toc` for a single call. Usually the fix is preallocation, vectorization
-(principle 4), or caching (principle 3), not parallelism.
+(principle 5), or caching (principle 6), not parallelism.
 
 When you do need parallelism, run it at the coarsest level — one substantial task
 per session/subject, not per trial (requires the Parallel Computing Toolbox):
@@ -379,7 +379,7 @@ parfor s = 1:numel(sessions)
 end
 ```
 
-`analyze_session` is a pure per-session function (principle 8), so each worker
+`analyze_session` is a pure per-session function (principle 3), so each worker
 loads its own data with no shared state. Start the pool once with `parpool`;
 `parfeval`/`batch` help when tasks are long-running.
 
@@ -390,7 +390,7 @@ with shared memory, faster startup and no copy, but only a subset of functions
 supported). Default to Processes; switch to threads when workers share large data
 and the functions you call are supported. Separately, MATLAB already multithreads
 many built-in array and BLAS operations across cores on its own — so vectorized
-math (principle 4) uses your cores with no pool at all.
+math (principle 5) uses your cores with no pool at all.
 
 ---
 

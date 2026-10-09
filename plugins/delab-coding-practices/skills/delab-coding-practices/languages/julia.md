@@ -77,161 +77,7 @@ trials = CSV.read(path, DataFrame)   # edge: caller does the I/O
 rt = mean_rt(trials)                 # pure, deterministic, testable
 ```
 
-## 3. Cache expensive local results
-
-Cache to disk keyed on the inputs, and only compute on a miss. `Scratch.jl`
-gives you a git-ignored cache directory; `JLD2.jl` stores Julia values.
-
-❌ **Before** — recomputes a slow step every run
-
-```julia
-load_features(session_id) = extract_features(read_raw(session_id))  # slow every time
-```
-
-✅ **After** — cache-or-compute
-
-```julia
-using JLD2, Scratch
-
-cachedir() = @get_scratch!("features")     # git-ignored, per-package
-
-function load_features(session_id::AbstractString)
-    path = joinpath(cachedir(), "$(session_id).jld2")
-    isfile(path) && return load(path, "features")
-    features = extract_features(read_raw(session_id))
-    jldsave(path; features)                # save once
-    return features
-end
-```
-
-Change the inputs and you write a new file; otherwise you reload in milliseconds.
-(For pure in-session memoization, see `Memoization.jl`.)
-
-## 4. Map / broadcast instead of hand-rolled loops
-
-Prefer `map`, a comprehension, or broadcasting (`f.(xs)`) over an index loop that
-pre-allocates and fills.
-
-- **Here it's about clarity, not speed** — a Julia `for` loop is already fast.
-  The win is no index bookkeeping, no `1:length` off-by-one, and a named
-  function you can test on its own. It also pushes you toward small functions
-  (principle 5).
-- Broadcasting *also* fuses: `@. z = (x - μ) / σ` allocates no temporaries.
-
-❌ **Before** — manual pre-allocate-and-fill
-
-```julia
-zscored = similar(rates)
-for i in 1:length(rates)
-    zscored[i] = (rates[i] - mean(rates)) / std(rates)   # mean/std recomputed each iter!
-end
-```
-
-✅ **After** — broadcast, correct and allocation-light
-
-```julia
-μ, σ = mean(rates), std(rates)
-zscored = (rates .- μ) ./ σ
-```
-
-The same for per-group work — fitting a GLM per subject won't get faster, but
-factoring the body out and mapping still wins:
-
-```julia
-# ❌ body inlined in a loop
-D = Dict()
-for i in 1:length(subjids)
-    d = filter(:subjid => ==(subjids[i]), big_df)
-    m = fit(GeneralizedLinearModel, @formula(correct ~ coherence), d, Binomial())
-    D[subjids[i]] = (; b = coef(m), se = stderror(m))
-end
-
-# ✅ a small, testable function mapped over the groups (no global reach-in)
-function fit_subject(trials)
-    m = fit(GeneralizedLinearModel, @formula(correct ~ coherence), trials, Binomial())
-    return (; b = coef(m), se = stderror(m))
-end
-
-D = Dict(s => fit_subject(sdf) for (s, sdf) in pairs(groupby(big_df, :subjid)))
-```
-
-Now `fit_subject` can be unit-tested on one subject and reused elsewhere.
-
-## 5. Small, single-purpose functions
-
-Multiple dispatch rewards small methods with clear names — lean into it.
-
-❌ **Before** — one function loads, cleans, models, and plots
-
-```julia
-function do_everything(path)
-    df = CSV.read(path, DataFrame)
-    df = filter(:rt => >(0), df)
-    df.log_rt = log.(df.rt)
-    m = lm(@formula(log_rt ~ coherence), df)
-    scatter(df.coherence, df.log_rt); ...
-    return m
-end
-```
-
-✅ **After** — small, named, composable steps
-
-```julia
-load_trials(path) = CSV.read(path, DataFrame)
-clean(trials)     = filter(:rt => >(0), trials)
-fit_rt(trials)    = lm(@formula(log_rt ~ coherence), trials)
-
-trials = clean(load_trials(path))
-model  = fit_rt(trials)
-```
-
-## 6. Test-driven development
-
-Write the test first with the `Test` stdlib, watch it fail, then implement.
-
-```julia
-using Test
-
-@testset "mean_rt ignores invalid" begin           # write this BEFORE mean_rt exists
-    trials = DataFrame(rt = [1.0, 3.0, 99.0], valid = [true, true, false])
-    @test mean_rt(trials) == 2.0
-end
-```
-
-Run with `pkg> test` (or `Pkg.test()`) — reserve full test runs for before you
-submit; use `Revise` + a running session while iterating.
-
-**Use synthetic fixtures, not real data.** The test builds its own tiny
-`DataFrame`, so it passes on a fresh clone and in CI with no lab data present.
-Never point a test at `/data/...`.
-
-## 7. Never store secrets or hard-coded paths
-
-❌ **Before** — credentials and an absolute path baked into source
-
-```julia
-const DB   = connect("postg:https://admin:hunter2@10.0.0.5/spikes")   # secret in git forever
-const DATA = "/Users/jane/Dropbox/lab/data/session.csv"       # one machine only
-```
-
-✅ **After** — read from the environment / configurable roots
-
-```julia
-Base.@kwdef struct Config
-    db_url::String    = ENV["LAB_DB_URL"]                         # required: errors if unset
-    data_root::String = get(ENV, "LAB_DATA", expanduser("~/data"))
-end
-
-cfg = Config()
-session = joinpath(cfg.data_root, "session.csv")
-```
-
-`ENV["LAB_DB_URL"]` throws a clear `KeyError` if the variable is missing (fail
-loudly — principle 9). Load a `.env` in dev with `DotEnv.jl`; for persistent
-per-package settings use `Preferences.jl`. Commit a `.env.example` with the
-variable *names* only, and git-ignore `.env` and the cache directory.
-
-## 8. Separate I/O, analysis, and plotting
+## 3. Separate I/O, analysis, and plotting
 
 Three layers, three functions: load the data, compute on it, draw it. A plotting
 function takes an optional `ax` and makes its own only if none is given, so any
@@ -252,7 +98,7 @@ end
 ✅ **After** — I/O (with cache-or-compute), pure analysis, an `ax`-aware plot
 
 ```julia
-# --- I/O layer: load, with cache-or-compute (principle 3) ---
+# --- I/O layer: load, with cache-or-compute (principle 6) ---
 function get_behavior(subjid)
     data = load_from_behavior_cache(subjid)
     if isnothing(data)                       # cache miss: do the work once, save it
@@ -314,6 +160,160 @@ all_trials = fetch_all_behavior(sessids)         # one bulk query, not length(se
 perf = map(s -> session_performance(get_behavior(s; data = all_trials)), sessids)
 ```
 
+## 4. Small, single-purpose functions
+
+Multiple dispatch rewards small methods with clear names — lean into it.
+
+❌ **Before** — one function loads, cleans, models, and plots
+
+```julia
+function do_everything(path)
+    df = CSV.read(path, DataFrame)
+    df = filter(:rt => >(0), df)
+    df.log_rt = log.(df.rt)
+    m = lm(@formula(log_rt ~ coherence), df)
+    scatter(df.coherence, df.log_rt); ...
+    return m
+end
+```
+
+✅ **After** — small, named, composable steps
+
+```julia
+load_trials(path) = CSV.read(path, DataFrame)
+clean(trials)     = filter(:rt => >(0), trials)
+fit_rt(trials)    = lm(@formula(log_rt ~ coherence), trials)
+
+trials = clean(load_trials(path))
+model  = fit_rt(trials)
+```
+
+## 5. Map / broadcast instead of hand-rolled loops
+
+Prefer `map`, a comprehension, or broadcasting (`f.(xs)`) over an index loop that
+pre-allocates and fills.
+
+- **Here it's about clarity, not speed** — a Julia `for` loop is already fast.
+  The win is no index bookkeeping, no `1:length` off-by-one, and a named
+  function you can test on its own. It also pushes you toward small functions
+  (principle 4).
+- Broadcasting *also* fuses: `@. z = (x - μ) / σ` allocates no temporaries.
+
+❌ **Before** — manual pre-allocate-and-fill
+
+```julia
+zscored = similar(rates)
+for i in 1:length(rates)
+    zscored[i] = (rates[i] - mean(rates)) / std(rates)   # mean/std recomputed each iter!
+end
+```
+
+✅ **After** — broadcast, correct and allocation-light
+
+```julia
+μ, σ = mean(rates), std(rates)
+zscored = (rates .- μ) ./ σ
+```
+
+The same for per-group work — fitting a GLM per subject won't get faster, but
+factoring the body out and mapping still wins:
+
+```julia
+# ❌ body inlined in a loop
+D = Dict()
+for i in 1:length(subjids)
+    d = filter(:subjid => ==(subjids[i]), big_df)
+    m = fit(GeneralizedLinearModel, @formula(correct ~ coherence), d, Binomial())
+    D[subjids[i]] = (; b = coef(m), se = stderror(m))
+end
+
+# ✅ a small, testable function mapped over the groups (no global reach-in)
+function fit_subject(trials)
+    m = fit(GeneralizedLinearModel, @formula(correct ~ coherence), trials, Binomial())
+    return (; b = coef(m), se = stderror(m))
+end
+
+D = Dict(s => fit_subject(sdf) for (s, sdf) in pairs(groupby(big_df, :subjid)))
+```
+
+Now `fit_subject` can be unit-tested on one subject and reused elsewhere.
+
+## 6. Cache expensive local results
+
+Cache to disk keyed on the inputs, and only compute on a miss. `Scratch.jl`
+gives you a git-ignored cache directory; `JLD2.jl` stores Julia values.
+
+❌ **Before** — recomputes a slow step every run
+
+```julia
+load_features(session_id) = extract_features(read_raw(session_id))  # slow every time
+```
+
+✅ **After** — cache-or-compute
+
+```julia
+using JLD2, Scratch
+
+cachedir() = @get_scratch!("features")     # git-ignored, per-package
+
+function load_features(session_id::AbstractString)
+    path = joinpath(cachedir(), "$(session_id).jld2")
+    isfile(path) && return load(path, "features")
+    features = extract_features(read_raw(session_id))
+    jldsave(path; features)                # save once
+    return features
+end
+```
+
+Change the inputs and you write a new file; otherwise you reload in milliseconds.
+(For pure in-session memoization, see `Memoization.jl`.)
+
+## 7. Test-driven development
+
+Write the test first with the `Test` stdlib, watch it fail, then implement.
+
+```julia
+using Test
+
+@testset "mean_rt ignores invalid" begin           # write this BEFORE mean_rt exists
+    trials = DataFrame(rt = [1.0, 3.0, 99.0], valid = [true, true, false])
+    @test mean_rt(trials) == 2.0
+end
+```
+
+Run with `pkg> test` (or `Pkg.test()`) — reserve full test runs for before you
+submit; use `Revise` + a running session while iterating.
+
+**Use synthetic fixtures, not real data.** The test builds its own tiny
+`DataFrame`, so it passes on a fresh clone and in CI with no lab data present.
+Never point a test at `/data/...`.
+
+## 8. Never store secrets or hard-coded paths
+
+❌ **Before** — credentials and an absolute path baked into source
+
+```julia
+const DB   = connect("postg:https://admin:hunter2@10.0.0.5/spikes")   # secret in git forever
+const DATA = "/Users/jane/Dropbox/lab/data/session.csv"       # one machine only
+```
+
+✅ **After** — read from the environment / configurable roots
+
+```julia
+Base.@kwdef struct Config
+    db_url::String    = ENV["LAB_DB_URL"]                         # required: errors if unset
+    data_root::String = get(ENV, "LAB_DATA", expanduser("~/data"))
+end
+
+cfg = Config()
+session = joinpath(cfg.data_root, "session.csv")
+```
+
+`ENV["LAB_DB_URL"]` throws a clear `KeyError` if the variable is missing (fail
+loudly — principle 9). Load a `.env` in dev with `DotEnv.jl`; for persistent
+per-package settings use `Preferences.jl`. Commit a `.env.example` with the
+variable *names* only, and git-ignore `.env` and the cache directory.
+
 ## 9. Fail loudly
 
 ❌ **Before** — a silent fallback hides a real problem
@@ -369,7 +369,7 @@ Correctness and clarity first. When something really is too slow, **measure
 before you optimize** — `@btime` (BenchmarkTools) for a function, `@profile` +
 `Profile` for a whole run. In Julia the first fix is almost never parallelism:
 it's **type stability** (check `@code_warntype` or `JET.jl`), which often buys a
-10× on its own, then caching (principle 3) and broadcasting (principle 4).
+10× on its own, then caching (principle 6) and broadcasting (principle 5).
 
 When you do need parallelism, run it at the coarsest level — one substantial task
 per session/subject, not per trial:
@@ -388,7 +388,7 @@ For a handful of heavy, independent, uneven per-session tasks, `Threads.@spawn` 
 spawn overhead is nothing next to a whole-session analysis. (`@threads` — ideally
 `@threads :dynamic` — is for simple uniform loops over *many cheap* items, the
 fine-grained case you're avoiding here; `OhMyThreads.jl` offers an ergonomic
-`tmap`.) `analyze_session` is pure (principle 8), so tasks share no mutable state.
+`tmap`.) `analyze_session` is pure (principle 3), so tasks share no mutable state.
 
 **Threads or processes?** `Threads.@spawn` shares memory — workers see the same
 arrays with no copying — at low overhead, but stays on one machine and needs

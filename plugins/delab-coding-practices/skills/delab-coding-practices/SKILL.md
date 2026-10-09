@@ -5,7 +5,7 @@ description: >-
   writing, reviewing, or refactoring research code in Python, Julia, MATLAB,
   or R — behavior/rig control, ephys and imaging analysis, modeling, or
   statistics. Enforces reproducible environments, functional and testable
-  code, cached computation, vectorization, small functions, and keeping
+  code, small functions, vectorization, cached computation, and keeping
   secrets and hard-coded paths out of the repository. When the user is working
   in a specific language, also read the matching file in `languages/`.
 ---
@@ -66,82 +66,18 @@ writes of global state, no surprise side effects.
 
 - Pass data in as arguments and return results; don't reach out to globals.
 - Separate *computation* (pure, testable) from *I/O and plotting* (the edges);
-  principle 8 spells this out as three concrete layers.
+  principle 3 spells this out as three concrete layers.
 - A function that both loads a file, computes, mutates a global, and plots is
   four functions wearing a trench coat.
 
-## 3. Cache expensive local results
-
-If a computation is slow and its inputs haven't changed, don't recompute it —
-cache the result to disk, keyed on the inputs, and reuse it.
-
-- Cache key = a hash of the inputs (and code version if relevant), so stale
-  caches invalidate automatically.
-- Caches are disposable: deleting the cache directory must only cost time, and
-  the cache dir is git-ignored.
-- This is what lets analysis notebooks re-run in seconds instead of hours.
-
-## 4. Map / vectorize instead of hand-rolled loops
-
-Prefer a `map`, comprehension, or vectorized array operation over a manual
-index loop that pre-allocates and fills.
-
-- **Often the win is clarity, not speed.** Factor the loop body into a small,
-  named function and map over it: `map(fit_subject, subjids)`. Even when there's
-  no speedup at all — e.g. fitting one model per subject — this is shorter, has
-  no index bookkeeping to get wrong, reads as *what* it does, and lets you test
-  `fit_subject` on its own. It naturally pushes you toward small functions
-  (principle 5).
-- **For numeric array work it's *also* much faster.** A vectorized operation
-  replaces a Python-level loop with a compiled one.
-- "For each x, compute f(x)" → `map(f, xs)` / `[f(x) for x in xs]` / vectorized.
-- Reserve explicit loops for genuine sequential state (running accumulators,
-  early exit, side-effecting I/O).
-
-## 5. Small, single-purpose functions
-
-A function should do one thing, be nameable in a short verb phrase, and fit on
-a screen. If you need "and" to describe it, split it.
-
-- Small functions are testable, reusable, and self-documenting.
-- Deep nesting or a 200-line function is a refactor waiting to happen.
-
-## 6. Test-driven development
-
-Write a test that captures the intended behavior, watch it fail, then write the
-code that makes it pass. Tests describe *what the code should do* and let you
-refactor without fear.
-
-- Test behavior and edge cases, not implementation details.
-- Every bug fixed gets a regression test that would have caught it.
-- Tests run with one command and (ideally) in CI on every push.
-- **Corollary — use synthetic fixtures, not real data files.** A test builds its
-  own tiny inputs, so a fresh clone with no lab data present still passes. This
-  keeps tests portable and fast, and dovetails with principle 7 (no hard-coded
-  data paths).
-
-## 7. Never store secrets or credentials in code
-
-No passwords, API keys, tokens, or connection strings in source — ever, not
-even "temporarily." Once committed, assume it's compromised.
-
-- Read secrets from environment variables or a config file that is git-ignored.
-- Provide a committed `.env.example` / template showing the *names*, not values.
-- The same applies to hard-coded absolute data paths — make roots configurable,
-  don't bake `/Users/yourname/...` into the analysis.
-- Keep generated cruft out of the repo: caches, build artifacts, and editor or
-  session files belong in `.gitignore`. For OS junk that shows up in *every* repo
-  — `.DS_Store`, editor swap files — set a **global** gitignore once so you never
-  fight it per-project: `git config --global core.excludesfile ~/.gitignore_global`.
-
-## 8. Separate I/O, analysis, and plotting
+## 3. Separate I/O, analysis, and plotting
 
 Three layers, three functions: **load** the data, **compute** on it, **draw**
 it. Keep them apart.
 
 - **I/O** — loads and saves data (files, caches, databases). Knows about paths
   and formats; hands back plain in-memory data. Pair it with caching (principle
-  3): try the cache, and only compute-and-save on a miss. Give it an optional
+  6): try the cache, and only compute-and-save on a miss. Give it an optional
   argument to inject already-loaded data, so a caller can pre-fetch once (one
   bulk query instead of N) and run offline — or in tests — with no I/O at all.
 - **Analysis** — pure computation on that in-memory data. No file access, no
@@ -155,6 +91,70 @@ payoff: you can test analysis without a disk or a display, swap a cache for a
 database without touching analysis, and reuse a one-panel plot inside a larger
 figure.
 
+## 4. Small, single-purpose functions
+
+A function should do one thing, be nameable in a short verb phrase, and fit on
+a screen. If you need "and" to describe it, split it.
+
+- Small functions are testable, reusable, and self-documenting.
+- Deep nesting or a 200-line function is a refactor waiting to happen.
+
+## 5. Map / vectorize instead of hand-rolled loops
+
+Prefer a `map`, comprehension, or vectorized array operation over a manual
+index loop that pre-allocates and fills.
+
+- **Often the win is clarity, not speed.** Factor the loop body into a small,
+  named function and map over it: `map(fit_subject, subjids)`. Even when there's
+  no speedup at all — e.g. fitting one model per subject — this is shorter, has
+  no index bookkeeping to get wrong, reads as *what* it does, and lets you test
+  `fit_subject` on its own. It naturally pushes you toward small functions
+  (principle 4).
+- **For numeric array work it's *also* much faster.** A vectorized operation
+  replaces a Python-level loop with a compiled one.
+- "For each x, compute f(x)" → `map(f, xs)` / `[f(x) for x in xs]` / vectorized.
+- Reserve explicit loops for genuine sequential state (running accumulators,
+  early exit, side-effecting I/O).
+
+## 6. Cache expensive local results
+
+If a computation is slow and its inputs haven't changed, don't recompute it —
+cache the result to disk, keyed on the inputs, and reuse it.
+
+- Cache key = a hash of the inputs (and code version if relevant), so stale
+  caches invalidate automatically.
+- Caches are disposable: deleting the cache directory must only cost time, and
+  the cache dir is git-ignored.
+- This is what lets analysis notebooks re-run in seconds instead of hours.
+
+## 7. Test-driven development
+
+Write a test that captures the intended behavior, watch it fail, then write the
+code that makes it pass. Tests describe *what the code should do* and let you
+refactor without fear.
+
+- Test behavior and edge cases, not implementation details.
+- Every bug fixed gets a regression test that would have caught it.
+- Tests run with one command and (ideally) in CI on every push.
+- **Corollary — use synthetic fixtures, not real data files.** A test builds its
+  own tiny inputs, so a fresh clone with no lab data present still passes. This
+  keeps tests portable and fast, and dovetails with principle 8 (no hard-coded
+  data paths).
+
+## 8. Never store secrets or credentials in code
+
+No passwords, API keys, tokens, or connection strings in source — ever, not
+even "temporarily." Once committed, assume it's compromised.
+
+- Read secrets from environment variables or a config file that is git-ignored.
+- Provide a committed `.env.example` / template showing the *names*, not values.
+- The same applies to hard-coded absolute data paths — make roots configurable,
+  don't bake `/Users/yourname/...` into the analysis.
+- Keep generated cruft out of the repo: caches, build artifacts, and editor or
+  session files belong in `.gitignore`. For OS junk that shows up in *every* repo
+  — `.DS_Store`, editor swap files — set a **global** gitignore once so you never
+  fight it per-project: `git config --global core.excludesfile ~/.gitignore_global`.
+
 ## 9. Fail loudly
 
 When something unexpected happens, stop and surface it — don't paper over it with
@@ -163,7 +163,7 @@ failure at the source is a five-minute fix; a silent one becomes a wrong figure
 you trust for a month.
 
 - Validate inputs at the boundary and raise with a clear message (this is part
-  of what pydantic buys you — principle 7).
+  of what pydantic buys you — principle 8).
 - Never swallow an exception you didn't expect and can't handle.
 - A fallback value is acceptable only when it's a *deliberate, documented*
   choice — say why in a comment (principle 10).
@@ -189,7 +189,7 @@ readability for speed you don't need.
 
 - **Measure before optimizing.** Profile to find the actual bottleneck instead of
   guessing — the slow line is rarely where you'd bet. Often the real fix is
-  caching (principle 3) or vectorizing (principle 4), not hand-tuning, and those
+  caching (principle 6) or vectorizing (principle 5), not hand-tuning, and those
   come first.
 - **When you do need speed, parallelize at the highest level.** Most lab code is
   *embarrassingly parallel* over sessions, subjects, or animals — independent
@@ -197,7 +197,7 @@ readability for speed you don't need.
 - **Coarse beats fine.** Parallelizing over *trials* is bad: thousands of tiny
   tasks whose per-task overhead — spawning workers, copying data to them —
   dwarfs the work. Over *sessions* it's good: each worker does substantial work
-  and loads its own data once. A pure per-session analysis function (principle 8)
+  and loads its own data once. A pure per-session analysis function (principle 3)
   is exactly the unit to map and then parallelize.
 - **Threads or processes?** Shared-memory threads have low overhead but stay on
   one machine; separate processes isolate state and can scale across machines.
@@ -225,7 +225,7 @@ unrelated changes.
   the same — branch, push, open a merge/pull request, merge to `main`.
 
 Commit messages follow principle 10 (explain the present, not the history), and
-`.gitignore` keeps generated cruft out of the repo (principle 7). For the
+`.gitignore` keeps generated cruft out of the repo (principle 8). For the
 practical GitLab setup — deleting merged branches automatically, and a backstop
 for catching drifting branches — see [`gitlab-workflow.md`](gitlab-workflow.md).
 

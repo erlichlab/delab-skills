@@ -8,7 +8,7 @@ plain Markdown and JSON with no runtime dependencies, so the check uses only
 the standard library and runs on a bare clone with no environment to create.
 
 Checks return a list of problem strings rather than printing or exiting, so
-they can be called from a test on a synthetic input (principle 2, 6). The
+they can be called from a test on a synthetic input (principles 2, 7). The
 frontmatter checks take parsed values rather than a path, so they need no
 filesystem at all. Tests are in scripts/test_check_plugin.py; the checks that
 walk the repo layout are still covered only by running against this repo.
