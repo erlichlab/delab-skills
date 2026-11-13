@@ -53,6 +53,8 @@ have made three steps ago.
 **Say when you are unsure.** Guessing quietly is worse than asking — they know
 the experiment, the rig, and the data, and you do not.
 
+**Keep a worklog.** For every user request, paraphrase the request and the results in `worklog.md`. Intermediate one-off scripts should be written into a `scratch` folder for reproducibility. For example, if the user says "How many animals and sessions and trials were in each condition?" Then the code to achieve the answer is saved in `scratch` and the `workload.md` shows the request, a reference to the code, and the resulting markdown table. 
+
 ## Review still happens — at the merge request
 
 Skipping per-commit review is not skipping review. Work that is about to leave
