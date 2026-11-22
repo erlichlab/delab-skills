@@ -257,6 +257,18 @@ unrelated changes.
   and often.
 - **Open a merge request** so changes are reviewed before they land, and **delete
   the branch** once it's merged.
+- **Every merge request bumps the version** (MAJOR.MINOR.PATCH) in the same MR.
+  The version is what a release is cut from, and a result should be tied to the
+  code that made it. The release tag is `v` plus the version (`v3.1.0`). In this
+  repo a GitHub workflow tags it when `plugin.json` changes on `main` (via the
+  GitLab-to-GitHub mirror, so with a delay); nothing enforces the bump, so a
+  forgotten one silently makes no release. **Patch** = fixes (a bug in the
+  analysis, a wrong number, wording, infrastructure); **minor** = new analyses
+  or panels, added without changing the old ones; **major** = a change that invalidates old
+  panels or analyses (earlier results no longer hold or can't be reproduced the
+  same way). For this plugin the levels apply to what consumers rely on: major
+  when principles are renumbered or removed (people cite "principle N"), minor
+  when something is added, patch for fixes and wording.
 - The lab uses **GitLab** by default (a few projects live on GitHub); the flow is
   the same — branch, push, open a merge/pull request, merge to `main`.
 

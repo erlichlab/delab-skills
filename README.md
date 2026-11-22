@@ -241,7 +241,7 @@ its own small merge request that changes both files.
 
 ## Status
 
-`v3.0`. Coding practices and workflows are separate skills: pick a workflow at
+`v3.1`. Coding practices and workflows are separate skills: pick a workflow at
 the start of a session, and the principles come with it. All four language
 files (Python, Julia, MATLAB, R) are fleshed out, and every skill follows the
 Agent Skills standard, so they travel to agents other than Claude Code.

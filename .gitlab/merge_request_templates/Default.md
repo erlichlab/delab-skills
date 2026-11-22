@@ -6,6 +6,10 @@
 
 <!-- What you ran, and the result. "Tests pass" is not a result. -->
 
+## Release
+
+- [ ] Version bumped (semver, principle 13).
+
 ## Review
 
 - [ ] Reviewed adversarially by something that did not write it — findings addressed
