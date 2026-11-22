@@ -165,7 +165,7 @@ State the point of the panel before plotting (principle 4 in `../SKILL.md`;
 details in [`visualisation.md`](../visualisation.md)). Plain `matplotlib` is
 enough for readable panels.
 
-❌ **Before** — defaults: small text, crowded ticks, no units, opaque points
+❌ **Before** — defaults: small text, opaque points, no units on the labels
 
 ```python
 plt.scatter(df.dose, df.effect)
@@ -175,11 +175,16 @@ plt.savefig("fig.png")
 ✅ **After** — one function draws, a separate one saves PNG and PDF
 
 ```python
+import matplotlib.pyplot as plt
+
 FONT_SIZE = 14  # large enough to read at the size the panel is shown
 
 def plot_dose_response(dose, effect, ax=None):
     """We plot each subject's effect against dose to show that the effect
-    grows with dose. Draws only; the caller passes computed values."""
+    grows with dose. Draws only; the caller passes computed values. (This
+    function makes one manuscript panel, so its docstring states that
+    panel's point; a general-purpose plotting function would say when to
+    use it instead.)"""
     if ax is None:
         _, ax = plt.subplots()
     ax.scatter(dose, effect, s=40, alpha=0.5)  # alpha: overlap stays visible

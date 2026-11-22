@@ -158,7 +158,7 @@ State the point of the panel before plotting (principle 4 in `../SKILL.md`;
 details in [`visualisation.md`](../visualisation.md)). The built-in graphics
 (`scatter`, `exportgraphics`) are enough for readable panels.
 
-❌ **Before** — defaults: small text, crowded ticks, no units, opaque points
+❌ **Before** — defaults: small text, opaque points, no units on the labels
 
 ```matlab
 scatter(dose, effect)
@@ -170,15 +170,17 @@ saveas(gcf, 'fig.png')
 ```matlab
 function ax = plot_dose_response(dose, effect, ax)
 % We plot each subject's effect against dose to show that the effect grows
-% with dose. Draws only; the caller passes computed values.
+% with dose. Draws only; the caller passes computed values. (This function
+% makes one manuscript panel, so its docstring states that panel's point; a
+% general-purpose plotting function would say when to use it instead.)
+    % Named constant, local because MATLAB has no file-level constants.
     FONT_SIZE = 14;   % large enough to read at the size the panel is shown
     if nargin < 3, ax = axes(figure); end
     scatter(ax, dose, effect, 40, 'filled', 'MarkerFaceAlpha', 0.5);
     xlabel(ax, 'Dose (mg/kg)');
-    ylabel(ax, 'Effect (% change in P(correct))');
+    ylabel(ax, 'Effect (% change)');
     ax.FontSize = FONT_SIZE;
-    ax.XTick = linspace(min(xlim(ax)), max(xlim(ax)), 4);  % a modest number
-    ax.YTick = linspace(min(ylim(ax)), max(ylim(ax)), 4);  % of ticks
+    axis(ax, 'padded');  % margin so end markers are not on the axis lines
 end
 
 function save_figure(fig, stem)
@@ -187,6 +189,9 @@ function save_figure(fig, stem)
     exportgraphics(fig, [stem '.pdf'], 'ContentType', 'vector');
 end
 ```
+
+Tick placement is left automatic: MATLAB picks round values and updates them
+if the limits change.
 
 ## 5. Small, single-purpose functions
 

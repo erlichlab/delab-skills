@@ -167,7 +167,8 @@ details in [`visualisation.md`](../visualisation.md)). Use `CairoMakie` for
 publication figures. `AlgebraOfGraphics.jl` is an allowed dependency if you
 prefer a declarative style.
 
-❌ **Before** — defaults: small text, crowded ticks, no units, opaque points
+❌ **Before** — defaults: text too small for the size the panel is shown at,
+no units on the labels
 
 ```julia
 scatter(dose, effect)
@@ -179,27 +180,27 @@ save("fig.png", current_figure())
 ```julia
 using CairoMakie
 
-const FONT_SIZE = 14  # large enough to read at the size the panel is shown
+const FONT_SIZE = 20  # Makie's default (14) is small at a column-width panel
 
 """
 We plot each subject's effect against dose to show that the effect grows
-with dose. Draws only; the caller passes computed values.
+with dose. Draws only; the caller passes computed values. (This function
+makes one manuscript panel, so its docstring states that panel's point; a
+general-purpose plotting function would say when to use it instead.)
 """
 function plot_dose_response!(ax::Axis, dose, effect)
     scatter!(ax, dose, effect; markersize = 10, color = (:black, 0.5))  # alpha
+    ax.xlabel = "Dose (mg/kg)"
+    ax.ylabel = "Effect (% change in P(correct))"
+    ax.xticks = LinearTicks(4)  # a modest number of ticks
+    ax.yticks = LinearTicks(4)
     return ax
 end
 
+"Make a one-panel figure and draw the dose-response panel into it."
 function plot_dose_response(dose, effect)
-    fig = Figure()
-    ax = Axis(fig[1, 1];
-        xlabel = "Dose (mg/kg)",
-        ylabel = "Effect (% change in P(correct))",
-        xlabelsize = FONT_SIZE, ylabelsize = FONT_SIZE,
-        xticklabelsize = FONT_SIZE, yticklabelsize = FONT_SIZE,
-        xticks = LinearTicks(4), yticks = LinearTicks(4),  # a modest number
-    )
-    plot_dose_response!(ax, dose, effect)
+    fig = Figure(; fontsize = FONT_SIZE)  # text in the panel inherits this
+    plot_dose_response!(Axis(fig[1, 1]), dose, effect)
     return fig
 end
 
@@ -211,8 +212,8 @@ function save_figure(fig, stem)
 end
 ```
 
-The `!` method draws into an existing `Axis`, so the panel drops into a larger
-`Figure`.
+The `!` method sets the labels and ticks on the `Axis` it is given, so the
+panel keeps them when drawn into a larger `Figure`.
 
 ## 5. Small, single-purpose functions
 

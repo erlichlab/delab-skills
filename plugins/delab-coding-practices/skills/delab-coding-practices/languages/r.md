@@ -194,7 +194,7 @@ State the point of the panel before plotting (principle 4 in `../SKILL.md`;
 details in [`visualisation.md`](../visualisation.md)). Use `ggplot2`: it
 returns a plot object, so a panel composes into a larger figure.
 
-❌ **Before** — defaults: small text, crowded ticks, no units, opaque points
+❌ **Before** — defaults: small text, opaque points, no units on the labels
 
 ```r
 plot(df$dose, df$effect)
@@ -203,14 +203,20 @@ plot(df$dose, df$effect)
 ✅ **After** — one function builds the plot, a separate one saves PNG and PDF
 
 ```r
+library(ggplot2)
+
 FONT_SIZE <- 14  # large enough to read at the size the panel is shown
 
 plot_dose_response <- function(dose, effect) {
   # We plot each subject's effect against dose to show that the effect grows
-  # with dose. Builds the plot only; the caller passes computed values.
+  # with dose. Builds the plot only; the caller passes computed values. (This
+  # function makes one manuscript panel, so its comment states that panel's
+  # point; a general-purpose plotting function would say when to use it.)
   ggplot(data.frame(dose, effect), aes(dose, effect)) +
     geom_point(size = 3, alpha = 0.5) +  # alpha: overlap stays visible
-    scale_x_continuous(n.breaks = 4) +   # a modest number of ticks
+    # n.breaks is a hint: ggplot picks round values, which may omit the top
+    # dose; pass `breaks =` with the dose levels if they must all show.
+    scale_x_continuous(n.breaks = 4) +
     scale_y_continuous(n.breaks = 4) +
     labs(x = "Dose (mg/kg)", y = "Effect (% change in P(correct))") +
     theme_classic(base_size = FONT_SIZE)
