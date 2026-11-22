@@ -230,7 +230,9 @@ not `bsxfun(@minus, a, mean(a))`.
 
 ## 6. Cache expensive local results
 
-Cache to a `.mat` file keyed on the inputs, and only compute on a miss.
+Cache to a `.mat` file, and only compute on a miss. The key covers the inputs,
+the parameters, and the code of the cached function; the file has a readable
+name, and the key is stored inside it as a variable (see SKILL.md principle 6).
 
 ❌ **Before** — recomputes a slow step every run
 
@@ -240,22 +242,74 @@ function f = load_features(session_id)
 end
 ```
 
-✅ **After** — cache-or-compute
+✅ **After** — readable filename, key stored in the file, code version in the key
 
 ```matlab
-function features = load_features(session_id)
-    cachefile = fullfile(cachedir(), sprintf('features_%s.mat', session_id));
-    if isfile(cachefile)
-        features = load(cachefile).features;      % reload in ms
-        return
+function features = load_features(session_id, bin_ms)
+    arguments
+        session_id (1,:) char
+        bin_ms (1,1) double {mustBeInteger} = 50
     end
-    features = extract_features(read_raw(session_id));
-    save(cachefile, 'features');                  % save once
+    % raw_path: your project's session id -> raw file lookup
+    key = struct('input_sha256', file_sha256(raw_path(session_id)), ...
+                 'code', code_version('extract_features'), ...
+                 'params', struct('bin_ms', bin_ms));
+    cachefile = fullfile(cachedir(), ...
+        sprintf('features_%s_bin%dms.mat', session_id, bin_ms));
+    features = cached_mat(cachefile, key, ...
+        @() extract_features(read_raw(session_id), bin_ms));
+end
+
+% A corrupt file (crash mid-save) errors on load: delete it by hand.
+function result = cached_mat(cachefile, key, compute)
+    if isfile(cachefile)
+        cached = load(cachefile);
+        if isfield(cached, 'key') && isequal(cached.key, key)
+            result = cached.result;
+            return
+        end
+    end
+    result = compute();
+    % -v7.3 (HDF5) lifts the 2 GB per-variable limit of the default format
+    save(cachefile, 'result', 'key', '-v7.3');
+end
+
+% The function's own .m file; helpers it calls are not included.
+function v = code_version(funcname)
+    mfile = which(funcname);
+    assert(~isempty(mfile), 'delab:cache:codeNotFound', ...
+           'cannot find the code of "%s" on the path', funcname);
+    v = file_sha256(mfile);
+    v = v(1:12);
+end
+
+function h = file_sha256(fname)
+    fid = fopen(fname, 'r');
+    assert(fid ~= -1, 'delab:cache:cannotOpen', 'cannot open "%s"', fname);
+    closer = onCleanup(@() fclose(fid));
+    md = java.security.MessageDigest.getInstance('SHA-256');
+    while ~feof(fid)                  % read in blocks: Java arrays cap ~2 GB
+        block = fread(fid, 2^24, '*uint8');
+        if ~isempty(block)            % empty after a read that ends at EOF
+            md.update(typecast(block, 'int8'));
+        end
+    end
+    h = sprintf('%02x', typecast(md.digest(), 'uint8'));
 end
 ```
 
-`cachedir()` returns a git-ignored folder. (For in-session reuse of a pure
-function, MATLAB's built-in `memoize` wraps a function handle.)
+Change the input file, the parameters, or the body of `extract_features` and the
+stored key no longer matches, so it recomputes and overwrites; otherwise it
+reads the cached file. Every call still hashes the raw file. The file is
+`features_subj12_bin50ms.mat`, and `load(cachefile, 'key')` shows how it was
+made. `cachedir()` returns a git-ignored folder.
+
+Limits. Only `extract_features.m` itself is hashed, so a change in a helper it
+calls (say `read_raw.m`) is not noticed: clear the cache folder by hand when you
+change a helper. Config and anything read at run time must be in the
+parameters. MATLAB reloads an edited function file by itself, so the key and the
+running code agree. (For in-session reuse of a pure function, MATLAB's built-in
+`memoize` wraps a function handle.)
 
 ## 7. Test-driven development
 

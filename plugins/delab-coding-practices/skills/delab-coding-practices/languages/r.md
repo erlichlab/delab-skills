@@ -6,7 +6,8 @@ may swap if a project already standardized on something else.
 
 **Default stack:** `renv` (environments) with `pak` for fast binary installs, the
 `tidyverse` (`dplyr`, `tidyr`, `purrr`, `ggplot2`), `testthat` (tests),
-`memoise`/`targets` (caching), `here` (paths), `styler` + `lintr` (format/lint),
+`memoise` (in-session memoization), `targets` (pipeline caching), `digest`
+(hashing for cache keys), `here` (paths), `styler` + `lintr` (format/lint),
 `furrr`/`future` (parallelism).
 
 R note: it's vectorized and functional, so vectorized and `purrr` code is
@@ -262,8 +263,9 @@ purrr::map_dfr(fit_subject, .id = "subjid")` is the base-`purrr` equivalent.)
 
 ## 6. Cache expensive local results
 
-Cache to disk keyed on the inputs. `memoise` + a disk cache handles the hashing
-and invalidation for you.
+Cache to disk so unchanged work isn't repeated. The key covers the inputs, the
+parameters, and the code of the cached function; the file has a readable name,
+and the key is stored in the file's metadata (see SKILL.md principle 6).
 
 ❌ **Before** — recomputes a slow step every run
 
@@ -271,21 +273,64 @@ and invalidation for you.
 load_features <- function(session_id) extract_features(read_raw(session_id))  # slow every time
 ```
 
-✅ **After** — memoized to a git-ignored disk cache
+✅ **After** — readable filename, key on the object, code version in the key
 
 ```r
-library(memoise)
-cache <- cachem::cache_disk(".cache")      # .cache is git-ignored
+CACHE_DIR <- ".cache"                      # git-ignored
 
-load_features <- memoise(
-  function(session_id) extract_features(read_raw(session_id)),
-  cache = cache
-)
+# The function's own arguments and body (live, so it matches what runs);
+# helpers it calls are not included.
+code_version <- function(f) {
+  code <- c(deparse(formals(f)), deparse(body(f)))
+  substr(digest::digest(paste(code, collapse = "\n"), "sha256",
+                        serialize = FALSE), 1, 12)
+}
+
+# raw_path: your project's session id -> raw file lookup
+cache_key <- function(session_id, params) {
+  list(input_sha256 = digest::digest(raw_path(session_id), "sha256",
+                                     file = TRUE),
+       code = code_version(extract_features),
+       params = params)
+}
+
+cached_rds <- function(path, key, compute) {
+  if (file.exists(path)) {
+    cached <- readRDS(path)     # a corrupt file errors here: delete it by hand
+    if (identical(attr(cached, "cache_key"), key)) return(cached)
+  }
+  result <- compute()
+  stopifnot(!is.null(result))   # attributes cannot be set on NULL
+  attr(result, "cache_key") <- key           # key travels with the data
+  dir.create(dirname(path), showWarnings = FALSE, recursive = TRUE)
+  saveRDS(result, path)
+  result
+}
+
+load_features <- function(session_id, bin_ms = 50) {
+  path <- file.path(CACHE_DIR,
+                    sprintf("features_%s_bin%dms.rds", session_id, bin_ms))
+  cached_rds(path, cache_key(session_id, list(bin_ms = bin_ms)), function() {
+    extract_features(read_raw(session_id), bin_ms = bin_ms)
+  })
+}
 ```
 
-Change the arguments (or the function) and it recomputes; otherwise it reloads in
-milliseconds. For a whole multi-step pipeline, `targets` caches each step and
-reruns only what changed.
+Change the input file, the parameters, or the body of `extract_features` and the
+stored key no longer matches, so it recomputes; otherwise it reads the cached
+file. Every call still hashes the raw file. The file is
+`features_subj12_bin50ms.rds`, and `attr(readRDS(path), "cache_key")` shows how
+it was made.
+
+Limits. Only `extract_features` itself is hashed, so a change in a helper it
+calls is not noticed: clear `.cache/` by hand when you change a helper. Config
+and anything read at run time must be in the parameters. The hash is of the
+function you pass, so for an S3 generic pass the method that actually runs. It
+is the function as defined in the running session, so it matches what runs;
+re-`source` an edited file before trusting a hit. `digest` belongs in your
+`renv` lockfile.
+(For in-session memoization of a pure function, see `memoise`; for a whole
+multi-step pipeline, `targets` caches each step and reruns only what changed.)
 
 ## 7. Test-driven development
 
