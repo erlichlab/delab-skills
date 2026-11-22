@@ -65,6 +65,8 @@ agents (and reviews) do better on a tight scope.
 - **Type** — `infrastructure` or `data-science` (decides the dev method below).
 - **Inputs / outputs / interfaces** — what it consumes and produces.
 - **Acceptance criteria** — how we'll know it's done (these become the tests).
+  For a work item that produces a figure, they must state the point the figure
+  conveys (principle 4).
 - **Complexity** — `simple` or `complex`.
 - **Status** — where it has got to, kept current as it moves.
 
@@ -118,7 +120,7 @@ writing them down is the record of why each change exists.
 instructions you send it — the whole item, not a path. A worker's checkout comes
 from the remote default branch, so it cannot read a file you have only just
 written, and putting the file where it could would mean committing to `main`,
-which principle 12 forbids and a protected branch rejects. Write the file on the
+which principle 13 forbids and a protected branch rejects. Write the file on the
 branch the work lands on, and let it reach `main` with the work.
 
 If the slug is taken, pick another. Never overwrite an existing item — that is
@@ -193,7 +195,7 @@ gets the description you give it and no template, so the record is yours to
 write. An MR that does not say it was reviewed should not be merged.
 
 **Integrate.** Work happens on a short-lived feature branch per issue
-(principle 12); open a merge request to `main` and close the issue on merge.
+(principle 13); open a merge request to `main` and close the issue on merge.
 
 ---
 
@@ -211,7 +213,7 @@ Pick the dev method from the issue's **type**:
 
 - **`infrastructure` → test-driven development.** Write a failing test that
   captures the acceptance criteria, watch it fail, implement until green
-  (principle 7).
+  (principle 8).
 - **`data-science` → synthetic-data-first (test-driven data science):**
   1. Generate synthetic data with **known ground-truth** parameters.
   2. Write a test asserting the pipeline **recovers** those parameters (within
@@ -222,8 +224,8 @@ Pick the dev method from the issue's **type**:
   Rationale: real data has no answer key, so synthetic data is how you tell a bug
   from a discovery.
 
-Work in small commits with clear messages (principle 10) on the issue's branch
-(principle 12), inside your own worktree. Never edit, check out, or commit in
+Work in small commits with clear messages (principle 11) on the issue's branch
+(principle 13), inside your own worktree. Never edit, check out, or commit in
 the shared working tree — other agents and the PI are using it, and you cannot
 see what they are part-way through. When done, report what you built, what you
 tested, anything left unresolved, and **where your work is**: the worktree path
@@ -231,7 +233,7 @@ and the branch, so a reviewer can find it.
 
 **Stay in your sandbox.** Operate only within the repos assigned to you. Do not
 read or write outside them, do not touch real data or secrets beyond what the
-issue requires (principle 8), and confirm before any destructive or irreversible
+issue requires (principle 9), and confirm before any destructive or irreversible
 command. Use the scoped GitLab token in your environment for issues, MRs, and
 pushes — it commits and pushes as the bot identity; never print, log, or commit
 it, and act only on the project it is scoped to.
@@ -255,7 +257,7 @@ so guessing is the only alternative and it is the wrong one. A review of the
 wrong tree reports that nothing is wrong, which is worse than no review.
 
 - **Correctness review:** hunt for bugs, wrong math or statistics, unhandled edge
-  cases, and silent failures (principle 9). For data science, verify ground-truth
+  cases, and silent failures (principle 10). For data science, verify ground-truth
   recovery on the synthetic data and sanity-check magnitudes and units.
 - **Style review:** check the change against every principle in the
   `delab-coding-practices` skill, and cite the principle number for each

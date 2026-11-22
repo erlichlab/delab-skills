@@ -40,8 +40,10 @@ gives you. You work in a tree the PI and other agents are using:
 Review along two dimensions:
 
 - **Correctness** — hunt for bugs, wrong maths or statistics, unhandled edge
-  cases, and silent failures (principle 9). For an analysis, verify it recovers
+  cases, and silent failures (principle 10). For an analysis, verify it recovers
   the known answer on its synthetic data, and sanity-check magnitudes and units.
+  For a figure, check it against its stated point (principle 4,
+  `visualisation.md`, "State the point first").
 - **Style** — check the change against every principle in the preloaded skill,
   citing the principle number for each finding. Read the relevant
   `${CLAUDE_PLUGIN_ROOT}/skills/delab-coding-practices/languages/<lang>.md` when a

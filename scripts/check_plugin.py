@@ -8,7 +8,7 @@ plain Markdown and JSON with no runtime dependencies, so the check uses only
 the standard library and runs on a bare clone with no environment to create.
 
 Checks return a list of problem strings rather than printing or exiting, so
-they can be called from a test on a synthetic input (principles 2, 7). The
+they can be called from a test on a synthetic input (principles 2, 8). The
 frontmatter checks take parsed values rather than a path, so they need no
 filesystem at all. Tests are in scripts/test_check_plugin.py; the checks that
 walk the repo layout are still covered only by running against this repo.
@@ -149,7 +149,7 @@ def _fenced_lines(lines: list[str]) -> tuple[list[bool], int | None]:
     Also returns the 1-based line of the last opener, if it is never closed —
     CommonMark treats an unterminated fence as running to end of file, so the
     caller can tell "no heading here" from "a heading here that a broken fence
-    is hiding" (principle 9).
+    is hiding" (principle 10).
     """
     in_fence = []
     opener: tuple[str, int] | None = None
@@ -175,7 +175,7 @@ def heading_anchors(text: str) -> set[str]:
     A `#` line such as `# load data` inside a ```python fence is a code comment,
     not a heading. Without this, a language guide's fenced comment satisfies a
     link to a heading that does not exist, and the dead anchor passes silently
-    (principle 9).
+    (principle 10).
     """
     lines = text.splitlines()
     fenced, _ = _fenced_lines(lines)
@@ -541,7 +541,7 @@ def plugin_component_names(root: Path) -> tuple[set[str], list[str]]:
     JSON from a manifest we don't otherwise validate here, and a non-string
     value (a list, a number, a `{"url": ...}` typo) must be reported like any
     other bad input rather than crash the whole checker run before it can
-    report anything else (principle 9).
+    report anything else (principle 10).
     """
     data, _ = load_json(root / ".claude-plugin" / "marketplace.json")
     names = set()

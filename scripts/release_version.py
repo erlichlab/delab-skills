@@ -62,7 +62,7 @@ def read_version(plugin_json: Path) -> str:
     Raises if it's missing, empty, or not a plain `X.Y.Z` string — a silent
     default, or a version like `" 2.0.0 "` passed through untouched, would
     tag and release under the wrong (or an invalid) name instead of failing
-    where the actual problem is (principle 9).
+    where the actual problem is (principle 10).
     """
     manifest = json.loads(plugin_json.read_text(encoding="utf-8"))
     version = manifest.get("version")

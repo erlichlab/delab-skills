@@ -98,7 +98,7 @@ end
 ✅ **After** — I/O (with cache-or-compute), pure analysis, an `ax`-aware plot
 
 ```julia
-# --- I/O layer: load, with cache-or-compute (principle 6) ---
+# --- I/O layer: load, with cache-or-compute (principle 7) ---
 function get_behavior(subjid)
     data = load_from_behavior_cache(subjid)
     if isnothing(data)                       # cache miss: do the work once, save it
@@ -160,7 +160,7 @@ all_trials = fetch_all_behavior(sessids)         # one bulk query, not length(se
 perf = map(s -> session_performance(get_behavior(s; data = all_trials)), sessids)
 ```
 
-## 4. Small, single-purpose functions
+## 5. Small, single-purpose functions
 
 Multiple dispatch rewards small methods with clear names — lean into it.
 
@@ -188,7 +188,7 @@ trials = clean(load_trials(path))
 model  = fit_rt(trials)
 ```
 
-## 5. Map / broadcast instead of hand-rolled loops
+## 6. Map / broadcast instead of hand-rolled loops
 
 Prefer `map`, a comprehension, or broadcasting (`f.(xs)`) over an index loop that
 pre-allocates and fills.
@@ -196,7 +196,7 @@ pre-allocates and fills.
 - **Here it's about clarity, not speed** — a Julia `for` loop is already fast.
   The win is no index bookkeeping, no `1:length` off-by-one, and a named
   function you can test on its own. It also pushes you toward small functions
-  (principle 4).
+  (principle 5).
 - Broadcasting *also* fuses: `@. z = (x - μ) / σ` allocates no temporaries.
 
 ❌ **Before** — manual pre-allocate-and-fill
@@ -238,11 +238,11 @@ D = Dict(s => fit_subject(sdf) for (s, sdf) in pairs(groupby(big_df, :subjid)))
 
 Now `fit_subject` can be unit-tested on one subject and reused elsewhere.
 
-## 6. Cache expensive local results
+## 7. Cache expensive local results
 
 Cache to disk, and only compute on a miss. The key covers the inputs, the
 parameters, and the code of the cached function; the file has a readable name,
-and the key is stored in the file itself (see SKILL.md principle 6).
+and the key is stored in the file itself (see SKILL.md principle 7).
 `Scratch.jl` gives you a cache directory and `JLD2.jl` stores Julia values.
 
 ❌ **Before** — recomputes a slow step every run
@@ -315,7 +315,7 @@ same-named files from different projects can collide: use a project-specific
 name, or a git-ignored `.cache/` in the repo instead. (For pure in-session
 memoization, see `Memoization.jl`.)
 
-## 7. Test-driven development
+## 8. Test-driven development
 
 Write the test first with the `Test` stdlib, watch it fail, then implement.
 
@@ -335,7 +335,7 @@ submit; use `Revise` + a running session while iterating.
 `DataFrame`, so it passes on a fresh clone and in CI with no lab data present.
 Never point a test at `/data/...`.
 
-## 8. Never store secrets or hard-coded paths
+## 9. Never store secrets or hard-coded paths
 
 ❌ **Before** — credentials and an absolute path baked into source
 
@@ -357,11 +357,11 @@ session = joinpath(cfg.data_root, "session.csv")
 ```
 
 `ENV["LAB_DB_URL"]` throws a clear `KeyError` if the variable is missing (fail
-loudly — principle 9). Load a `.env` in dev with `DotEnv.jl`; for persistent
+loudly — principle 10). Load a `.env` in dev with `DotEnv.jl`; for persistent
 per-package settings use `Preferences.jl`. Commit a `.env.example` with the
 variable *names* only, and git-ignore `.env` and the cache directory.
 
-## 9. Fail loudly
+## 10. Fail loudly
 
 ❌ **Before** — a silent fallback hides a real problem
 
@@ -390,7 +390,7 @@ wrong figure you trust for a month. This "surface it immediately" stance is the
 default for the whole session — only swallow an error when it's a deliberate,
 documented choice.
 
-## 10. Comments explain the present, not the history
+## 11. Comments explain the present, not the history
 
 ❌ **Before** — changelog and planning noise
 
@@ -410,13 +410,13 @@ rate = median(counts) / window
 The reader may not have your commit log, tickets, or session notes — comment the
 code that's in front of them. The same goes for commit messages.
 
-## 11. Optimize only when needed — and parallelize at the coarsest level
+## 12. Optimize only when needed — and parallelize at the coarsest level
 
 Correctness and clarity first. When something really is too slow, **measure
 before you optimize** — `@btime` (BenchmarkTools) for a function, `@profile` +
 `Profile` for a whole run. In Julia the first fix is almost never parallelism:
 it's **type stability** (check `@code_warntype` or `JET.jl`), which often buys a
-10× on its own, then caching (principle 6) and broadcasting (principle 5).
+10× on its own, then caching (principle 7) and broadcasting (principle 6).
 
 When you do need parallelism, run it at the coarsest level — one substantial task
 per session/subject, not per trial:
@@ -449,7 +449,7 @@ cluster (a later version). Stick with threads until you outgrow one node.
 ## Julia-specific: write generic code
 
 These aren't among the core principles, but they're where lab Julia code
-most often goes wrong. They also reinforce principle 2 (reuse) and principle 9
+most often goes wrong. They also reinforce principle 2 (reuse) and principle 10
 (fail loudly, not silently wrong).
 
 - **Signatures: accept the widest type that works.** `f(A::AbstractMatrix)`, not

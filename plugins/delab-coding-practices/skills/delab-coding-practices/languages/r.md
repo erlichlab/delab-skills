@@ -12,7 +12,7 @@ may swap if a project already standardized on something else.
 
 R note: it's vectorized and functional, so vectorized and `purrr` code is
 idiomatic. User-level R code is single-threaded, so parallelism means separate
-processes (see principle 11).
+processes (see principle 12).
 
 ---
 
@@ -131,7 +131,7 @@ behavior_figure <- function(subjid) {
 ✅ **After** — I/O (cache-or-compute), pure analysis, a plot that returns an object
 
 ```r
-# --- I/O layer: load, with cache-or-compute (principle 6) ---
+# --- I/O layer: load, with cache-or-compute (principle 7) ---
 get_behavior <- function(subjid) {
   data <- load_from_behavior_cache(subjid)
   if (is.null(data)) {                       # cache miss: do the work once, save it
@@ -188,7 +188,7 @@ all_trials <- fetch_all_behavior(subjids)    # one bulk query, not length(subjid
 perf <- purrr::map(subjids, ~ session_performance(get_behavior(.x, data = all_trials)))
 ```
 
-## 4. Small, single-purpose functions
+## 5. Small, single-purpose functions
 
 Small functions compose cleanly through the pipe. R lets you keep several in one
 file, so group them by theme (and use the package `R/` layout for shared code).
@@ -215,7 +215,7 @@ fit_rt      <- function(trials) lm(log_rt ~ coherence, trials)
 model <- load_trials(path) |> clean() |> add_log_rt() |> fit_rt()
 ```
 
-## 5. Map / vectorize instead of hand-rolled loops
+## 6. Map / vectorize instead of hand-rolled loops
 
 Prefer a vectorized operation or `purrr::map` over a `for` loop that grows a list
 by index.
@@ -261,11 +261,11 @@ results <- big_df |>
 Now `fit_subject` can be unit-tested on one subject. (`split(big_df, ~subjid) |>
 purrr::map_dfr(fit_subject, .id = "subjid")` is the base-`purrr` equivalent.)
 
-## 6. Cache expensive local results
+## 7. Cache expensive local results
 
 Cache to disk so unchanged work isn't repeated. The key covers the inputs, the
 parameters, and the code of the cached function; the file has a readable name,
-and the key is stored in the file's metadata (see SKILL.md principle 6).
+and the key is stored in the file's metadata (see SKILL.md principle 7).
 
 ❌ **Before** — recomputes a slow step every run
 
@@ -332,7 +332,7 @@ re-`source` an edited file before trusting a hit. `digest` belongs in your
 (For in-session memoization of a pure function, see `memoise`; for a whole
 multi-step pipeline, `targets` caches each step and reruns only what changed.)
 
-## 7. Test-driven development
+## 8. Test-driven development
 
 Write the test first with `testthat`, watch it fail, then implement.
 
@@ -352,7 +352,7 @@ devtools::test()      # red -> implement mean_rt -> green
 so it passes on a fresh clone with no lab data present. Never point a test at a
 `/data/...` file.
 
-## 8. Never store secrets or hard-coded paths
+## 9. Never store secrets or hard-coded paths
 
 ❌ **Before** — credentials and an absolute path baked into source
 
@@ -365,7 +365,7 @@ data <- "/Users/jane/Dropbox/lab/data/session.csv"                        # one 
 
 ```r
 db_url <- Sys.getenv("LAB_DB_URL")
-stopifnot(nzchar(db_url))                    # fail loudly if unset (principle 9)
+stopifnot(nzchar(db_url))                    # fail loudly if unset (principle 10)
 
 data_root <- Sys.getenv("LAB_DATA", unset = path.expand("~/data"))
 session   <- file.path(data_root, "session.csv")
@@ -377,7 +377,7 @@ absolute paths — and git-ignore `.Renviron` and the cache directory. Also git-
 ignore R's session cruft — `.Rhistory`, `.RData`, `.Rproj.user/` — and never
 commit `renv/library/`; the lockfile (principle 1) is enough to rebuild it.
 
-## 9. Fail loudly
+## 10. Fail loudly
 
 ❌ **Before** — a silent fallback hides a real problem
 
@@ -404,7 +404,7 @@ figure you trust for a month. Use `stop`/`stopifnot`/`rlang::abort` with a clear
 message, and be wary of R silently returning `NA` or partial-matching argument
 names. Only swallow an error when it's a deliberate, documented choice.
 
-## 10. Comments explain the present, not the history
+## 11. Comments explain the present, not the history
 
 ❌ **Before** — changelog and planning noise
 
@@ -424,12 +424,12 @@ rate <- median(counts) / window
 The reader may not have your commit log, tickets, or session notes — comment the
 code that's in front of them. The same goes for commit messages.
 
-## 11. Optimize only when needed — and parallelize at the coarsest level
+## 12. Optimize only when needed — and parallelize at the coarsest level
 
 Correctness and clarity first. When something really is too slow, **profile before
 you optimize** — `profvis::profvis()` for a run, `bench::mark()` to compare
-alternatives. Usually the fix is vectorizing (principle 5) or caching (principle
-6), not parallelism.
+alternatives. Usually the fix is vectorizing (principle 6) or caching (principle
+7), not parallelism.
 
 When you do need parallelism, run it at the coarsest level — one substantial task
 per session/subject, not per trial:
@@ -467,4 +467,4 @@ Scaling to a cluster uses `future.batchtools` + SLURM — a later version.
 - **Avoid `attach()`, `setwd()`, and `<<-`** — they create hidden state. Use
   `here::here()` for paths and pass data explicitly.
 - **Prefer type-stable maps** — `vapply()` or `purrr::map_*()` over `sapply()`,
-  which can silently change the result type (a quiet cousin of principle 9).
+  which can silently change the result type (a quiet cousin of principle 10).

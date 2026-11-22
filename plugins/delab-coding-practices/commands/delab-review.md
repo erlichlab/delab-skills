@@ -20,7 +20,7 @@ Then determine what to review:
 Report findings as a list, most important first. For each finding give:
 
 - `file:line`
-- the **principle number and name** it violates (e.g. "principle 9 — fail loudly"),
+- the **principle number and name** it violates (e.g. "principle 10 — fail loudly"),
 - what's wrong and the concrete fix.
 
 Be specific and actionable; do not rewrite the code in this command — that's what

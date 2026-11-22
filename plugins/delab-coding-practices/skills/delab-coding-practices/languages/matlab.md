@@ -94,7 +94,7 @@ end
 ✅ **After** — I/O (cache-or-compute), pure analysis, an `ax`-aware plot
 
 ```matlab
-% --- I/O layer: load, with cache-or-compute (principle 6) ---
+% --- I/O layer: load, with cache-or-compute (principle 7) ---
 function data = get_behavior(subjid)
     data = load_from_behavior_cache(subjid);
     if isempty(data)                          % cache miss: do the work once, save it
@@ -152,7 +152,7 @@ perf = arrayfun(@(s) session_performance(get_behavior(s, 'data', all_trials)), .
                 subjids, 'UniformOutput', false);
 ```
 
-## 4. Small, single-purpose functions
+## 5. Small, single-purpose functions
 
 Keep functions small — but MATLAB's *one function per file* rule means a pile of
 tiny public files is its own kind of mess. Two tools resolve the tension:
@@ -184,7 +184,7 @@ function model = fit_rt(trials)
 end
 ```
 
-## 5. Map / vectorize instead of hand-rolled loops
+## 6. Map / vectorize instead of hand-rolled loops
 
 Prefer a vectorized operation, or `arrayfun`/`cellfun` as `map`, over an index
 loop that pre-allocates and fills.
@@ -228,11 +228,11 @@ false` when the result isn't a scalar per element). One exception: `bsxfun` is
 legacy — since R2016b MATLAB expands sizes implicitly, so write `a - mean(a)`,
 not `bsxfun(@minus, a, mean(a))`.
 
-## 6. Cache expensive local results
+## 7. Cache expensive local results
 
 Cache to a `.mat` file, and only compute on a miss. The key covers the inputs,
 the parameters, and the code of the cached function; the file has a readable
-name, and the key is stored inside it as a variable (see SKILL.md principle 6).
+name, and the key is stored inside it as a variable (see SKILL.md principle 7).
 
 ❌ **Before** — recomputes a slow step every run
 
@@ -311,7 +311,7 @@ parameters. MATLAB reloads an edited function file by itself, so the key and the
 running code agree. (For in-session reuse of a pure function, MATLAB's built-in
 `memoize` wraps a function handle.)
 
-## 7. Test-driven development
+## 8. Test-driven development
 
 Write a test first with `matlab.unittest`, watch it fail, then implement. Run the
 folder with `runtests`.
@@ -336,7 +336,7 @@ end
 so it passes on a fresh clone with no lab data present. Never point a test at a
 `/data/...` file.
 
-## 8. Never store secrets or hard-coded paths
+## 9. Never store secrets or hard-coded paths
 
 ❌ **Before** — credentials and an absolute path baked into source
 
@@ -349,7 +349,7 @@ data = '/Users/jane/Dropbox/lab/data/session.csv';      % one machine only
 
 ```matlab
 db_url    = getenv('LAB_DB_URL');                        % set outside the repo
-assert(~isempty(db_url), 'delab:config', 'set LAB_DB_URL');   % fail loudly (principle 9)
+assert(~isempty(db_url), 'delab:config', 'set LAB_DB_URL');   % fail loudly (principle 10)
 
 data_root = getenv('LAB_DATA');
 if isempty(data_root), data_root = fullfile(getenv('HOME'), 'data'); end
@@ -359,7 +359,7 @@ session = fullfile(data_root, 'session.csv');
 Use `fullfile` (never string-concatenate paths), keep credentials in environment
 variables or a git-ignored config file, and git-ignore the cache directory.
 
-## 9. Fail loudly
+## 10. Fail loudly
 
 ❌ **Before** — a silent fallback hides a real problem
 
@@ -388,7 +388,7 @@ wrong figure you trust for a month. Use `error`/`assert` with an identifier and 
 clear message, or `validateattributes`/an `arguments` block to reject bad input
 at the door. Only swallow an error when it's a deliberate, documented choice.
 
-## 10. Comments explain the present, not the history
+## 11. Comments explain the present, not the history
 
 ❌ **Before** — changelog and planning noise
 
@@ -410,12 +410,12 @@ code that's in front of them. (Keep the separate *help block* below the signatur
 — see the MATLAB-specific note — that's documentation, not a comment about a
 line.)
 
-## 11. Optimize only when needed — and parallelize at the coarsest level
+## 12. Optimize only when needed — and parallelize at the coarsest level
 
 Correctness and clarity first. When something really is too slow, **profile
 before you optimize** — `profile on` / `profile viewer`, or `timeit` and
 `tic`/`toc` for a single call. Usually the fix is preallocation, vectorization
-(principle 5), or caching (principle 6), not parallelism.
+(principle 6), or caching (principle 7), not parallelism.
 
 When you do need parallelism, run it at the coarsest level — one substantial task
 per session/subject, not per trial (requires the Parallel Computing Toolbox):
@@ -444,7 +444,7 @@ with shared memory, faster startup and no copy, but only a subset of functions
 supported). Default to Processes; switch to threads when workers share large data
 and the functions you call are supported. Separately, MATLAB already multithreads
 many built-in array and BLAS operations across cores on its own — so vectorized
-math (principle 5) uses your cores with no pool at all.
+math (principle 6) uses your cores with no pool at all.
 
 ---
 

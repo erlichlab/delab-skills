@@ -2,7 +2,7 @@
 
 The lab uses **GitLab** by default (a few projects live on GitHub; the flow is the
 same). This guide is the practical companion to
-[principle 12](SKILL.md#12-work-in-short-lived-feature-specific-branches) —
+[principle 13](SKILL.md#13-work-in-short-lived-feature-specific-branches) —
 *work in short-lived, feature-specific branches*.
 
 ## Keep branches short-lived
@@ -27,7 +27,7 @@ don't linger, and the branch list stays an accurate picture of work in flight.
 ## Backstop: catch drifting branches early
 
 Periodically flag branches that have commits ahead of `main` but **no MR history** —
-these are the long-lived branches principle 12 warns about, and catching them early
+these are the long-lived branches principle 13 warns about, and catching them early
 beats discovering them at publication crunch time.
 
 - `GET /projects/:id/repository/branches` — list branches (each entry reports
@@ -43,7 +43,7 @@ project-manager agent (see the `delab-agentic-workflow` skill).
 
 ```
 git switch -c feat/short-name    # branch off an up-to-date main
-# ... small, focused change; commit with a clear message (principle 10) ...
+# ... small, focused change; commit with a clear message (principle 11) ...
 git push -u origin feat/short-name
 # open an MR, get it reviewed, merge to main (source branch auto-deletes)
 ```
