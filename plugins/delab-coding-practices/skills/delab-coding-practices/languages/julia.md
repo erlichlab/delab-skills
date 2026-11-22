@@ -240,8 +240,10 @@ Now `fit_subject` can be unit-tested on one subject and reused elsewhere.
 
 ## 6. Cache expensive local results
 
-Cache to disk keyed on the inputs, and only compute on a miss. `Scratch.jl`
-gives you a git-ignored cache directory; `JLD2.jl` stores Julia values.
+Cache to disk, and only compute on a miss. The key covers the inputs, the
+parameters, and the code of the cached function; the file has a readable name,
+and the key is stored in the file itself (see SKILL.md principle 6).
+`Scratch.jl` gives you a cache directory and `JLD2.jl` stores Julia values.
 
 ❌ **Before** — recomputes a slow step every run
 
@@ -249,24 +251,69 @@ gives you a git-ignored cache directory; `JLD2.jl` stores Julia values.
 load_features(session_id) = extract_features(read_raw(session_id))  # slow every time
 ```
 
-✅ **After** — cache-or-compute
+✅ **After** — readable filename, key stored in the file, code version in the key
 
 ```julia
-using JLD2, Scratch
+using JLD2, Scratch, SHA
 
-cachedir() = @get_scratch!("features")     # git-ignored, per-package
+cachedir() = @get_scratch!("features")     # outside the repo; see note below
 
-function load_features(session_id::AbstractString)
-    path = joinpath(cachedir(), "$(session_id).jld2")
-    isfile(path) && return load(path, "features")
-    features = extract_features(read_raw(session_id))
-    jldsave(path; features)                # save once
-    return features
+# Hash of the file that defines the method (so closures, comprehensions and
+# keyword bodies inside it count); helpers in other files are not included.
+# `argtypes` picks the method, e.g. (Vector{Float64},). Errors if no single
+# method matches or the file cannot be read (a REPL definition has no file).
+function code_version(f, argtypes)
+    file = String(only(methods(f, argtypes)).file)
+    first(bytes2hex(open(sha256, file)), 12)
+end
+
+# raw_path: your project's session id -> raw file lookup
+function cache_key(session_id, bin_ms)
+    Dict("input_sha256" => bytes2hex(open(sha256, raw_path(session_id))),
+         "code" => code_version(extract_features, (Vector{Float64},)),
+         "params" => string((; bin_ms)))
+end
+
+# A corrupt file (crash mid-save) errors on load: delete it by hand.
+function cached_jld2(path::AbstractString, key, compute)
+    if isfile(path)
+        hit = jldopen(path) do f
+            haskey(f, "key") && f["key"] == key ? f["value"] : nothing
+        end
+        isnothing(hit) || return hit
+    end
+    value = compute()
+    mkpath(dirname(path))
+    jldsave(path; value, key)              # data and key saved together
+    return value
+end
+
+function load_features(session_id::AbstractString; bin_ms = 50)
+    path = joinpath(cachedir(), "features_$(session_id)_bin$(bin_ms)ms.jld2")
+    cached_jld2(path, cache_key(session_id, bin_ms),
+                () -> extract_features(read_raw(session_id); bin_ms))
 end
 ```
 
-Change the inputs and you write a new file; otherwise you reload in milliseconds.
-(For pure in-session memoization, see `Memoization.jl`.)
+Change the input file, the parameters, or anything in the file that defines
+`extract_features` and the stored key no longer matches, so it recomputes and
+overwrites; otherwise it reads the cached file. (Any edit to that file counts,
+even to another function in it: one file, not the whole repo.) Every call still
+hashes the raw file. The file is `features_subj12_bin50ms.jld2`, and
+`load(path, "key")` shows how it was made.
+
+Limits. Only the file defining `extract_features` is hashed, so a change in a
+helper defined in another file is not noticed: clear the cache by hand when you
+change a helper. Config and anything read at run time must be in the
+parameters. The hash is of the function you pass, so with several methods pass
+the argument types of the one that actually runs. It reads the file on disk, so
+reload it (`Revise`, or restart) after editing before trusting a hit; a session
+still running the old code would store its result under the new key. Inside a
+package, `@get_scratch!` is a per-package directory outside the repo (so there
+is nothing to git-ignore); in a plain script it is a shared scratchspace where
+same-named files from different projects can collide: use a project-specific
+name, or a git-ignored `.cache/` in the repo instead. (For pure in-session
+memoization, see `Memoization.jl`.)
 
 ## 7. Test-driven development
 

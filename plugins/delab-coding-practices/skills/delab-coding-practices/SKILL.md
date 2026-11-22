@@ -119,13 +119,36 @@ index loop that pre-allocates and fills.
 ## 6. Cache expensive local results
 
 If a computation is slow and its inputs haven't changed, don't recompute it —
-cache the result to disk, keyed on the inputs, and reuse it.
+cache the result to disk, keyed on the inputs and the code, and reuse it. Three
+rules, with no setup beyond hashing:
 
-- Cache key = a hash of the inputs (and code version if relevant), so stale
-  caches invalidate automatically.
-- Caches are disposable: deleting the cache directory must only cost time, and
-  the cache dir is git-ignored.
-- This is what lets analysis notebooks re-run in seconds instead of hours.
+- **Local and disposable.** The cache dir is git-ignored, and deleting it must
+  only cost time.
+- **The key covers the inputs *and* the code version — always.** Key = a hash of
+  the inputs, plus the parameters, plus a hash of the cached function's own
+  code. Without the code version, editing the function leaves a stale result
+  that still loads without complaint. This is the same policy as
+  `joblib.Memory`, which also hashes only the function itself. The limits,
+  stated plainly:
+  - A change in a helper the function calls is **not** noticed. When you change
+    a helper, clear the cache by hand.
+  - Config and anything read at run time must be in the parameters.
+  - Where the hash reads code from disk (Python, Julia), reload (`Revise` in
+    Julia) or restart after editing before trusting a hit; otherwise a session
+    still running the old code stores its result under the new key. In R
+    re-source the edited file; MATLAB reloads changed functions itself.
+- **Readable filename, key stored alongside.** Name the file for what it is
+  (`features_subj12.parquet`, not `a3f9c1.pkl`), and put parameters that vary in
+  the name too (`features_subj12_bin50ms.parquet`) so a parameter sweep does not
+  overwrite itself. Record the key (input hash, code version, parameters) in a
+  sidecar file or in the file's own metadata. On load, compare the stored key
+  with the current one: a match is a hit, anything else is a miss. Anyone can
+  then see what a file is and how it was made. Write so that a crash mid-save
+  never leaves new data under an old key: a partial file must either count as a
+  miss or fail loudly on the next load.
+
+This is what lets analysis notebooks re-run in seconds instead of hours. Sharing
+a cache between people or machines is outside this principle.
 
 ## 7. Test-driven development
 

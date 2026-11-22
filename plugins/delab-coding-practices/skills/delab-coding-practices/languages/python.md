@@ -5,8 +5,8 @@ below are lab recommendations; where a tool is named, it's a strong default you
 may swap if a project already standardized on something else.
 
 **Default stack:** `uv` (env + packaging), `ruff` (lint + format), `pytest`
-(tests), type hints on public functions, `pathlib` for paths, `joblib` or
-`functools` for caching, `numpy`/`pandas`/`polars` for vectorized data work,
+(tests), type hints on public functions, `pathlib` for paths, `functools` for
+in-session memoization, `numpy`/`pandas`/`polars` for vectorized data work,
 `pydantic` / `pydantic-settings` for config and boundary validation.
 
 ---
@@ -135,9 +135,10 @@ for ax, subj in zip(axs, subjects):
     plot_behavior(subj, ax=ax)
 ```
 
-> The manual cache-or-compute branch in `get_behavior` is exactly what
-> `joblib.Memory` (principle 6) automates — reach for the hand-written version
-> only when you need custom cache logic.
+> `get_behavior`'s cache-or-compute branch is the pattern principle 6 spells
+> out: `load_from_cache` and `save_to_cache` must key on the inputs, the code
+> version and the parameters, and use a readable filename (see principle 6
+> below).
 
 **Inject pre-fetched data.** Give the I/O function an optional `data` argument: if
 the caller passes already-loaded data, use it and skip I/O entirely; otherwise
@@ -246,8 +247,9 @@ principle 2.)
 
 ## 6. Cache expensive local results
 
-Cache to disk keyed on inputs so unchanged work isn't repeated. `joblib.Memory`
-handles the hashing and invalidation for you.
+Cache to disk so unchanged work isn't repeated. The key covers the inputs, the
+parameters, and the code of the cached function; the file has a readable name,
+and the key is stored in a sidecar next to it (see SKILL.md principle 6).
 
 ❌ **Before** — recomputes a 20-minute step on every run
 
@@ -257,21 +259,80 @@ def load_features(session_id):
     return extract_features(raw)        # slow every single time
 ```
 
-✅ **After** — memoized to disk, keyed on the arguments
+✅ **After** — readable filename, key in a sidecar, code version in the key
 
 ```python
-from joblib import Memory
+import hashlib
+import inspect
+import json
+from pathlib import Path
 
-memory = Memory(location=".cache", verbose=0)   # .cache is git-ignored
+import pandas as pd
 
-@memory.cache
-def load_features(session_id: str) -> pd.DataFrame:
-    raw = read_raw(session_id)
-    return extract_features(raw)
+CACHE_DIR = Path(".cache")                      # git-ignored
+
+
+def file_sha256(path: Path) -> str:
+    with open(path, "rb") as f:                 # streams; Python >= 3.11
+        return hashlib.file_digest(f, "sha256").hexdigest()
+
+
+def code_version(func) -> str:
+    # The function's own source only: helpers it calls are not covered.
+    return hashlib.sha256(inspect.getsource(func).encode()).hexdigest()[:12]
+
+
+def cached_parquet(path: Path, key: dict, compute) -> pd.DataFrame:
+    key_path = path.with_suffix(".key.json")
+    key_text = json.dumps(key, sort_keys=True)
+    if path.exists() and key_path.exists() and key_path.read_text() == key_text:
+        return pd.read_parquet(path)
+    result = compute()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    key_path.unlink(missing_ok=True)   # no key while the data is half-written
+    result.to_parquet(path)
+    key_path.write_text(key_text)      # key last: a crash before it is a miss
+    return result
+
+
+def features_key(session_id: str, bin_ms: int) -> dict:
+    return {
+        # raw_path: your project's session id -> raw file lookup
+        "input_sha256": file_sha256(raw_path(session_id)),
+        "code": code_version(extract_features),
+        "params": {"bin_ms": bin_ms},
+    }
+
+
+def load_features(session_id: str, bin_ms: int = 50) -> pd.DataFrame:
+    path = CACHE_DIR / f"features_{session_id}_bin{bin_ms}ms.parquet"
+    return cached_parquet(
+        path,
+        features_key(session_id, bin_ms),
+        lambda: extract_features(read_raw(session_id), bin_ms=bin_ms),
+    )
 ```
 
-Change the arguments (or the function body) and joblib recomputes; otherwise it
-returns the cached result in milliseconds.
+Change the input file, the parameters, or the body of `extract_features` and the
+stored key no longer matches, so it recomputes; otherwise it reads the cached
+file. Every call still hashes the raw file. The cache holds
+`features_subj12_bin50ms.parquet` with `features_subj12_bin50ms.key.json` beside
+it, so anyone can open the key and see how the file was made.
+
+Limits. Only `extract_features` itself is hashed, so a change in a helper it
+calls (say `read_raw`) is not noticed: clear `.cache/` by hand when you change
+a helper. Config and anything read at run time must be in the parameters. The
+hash is of the function you pass, so for a decorated or wrapped function pass
+the one that actually runs. `inspect.getsource` reads the file on disk, so
+restart the interpreter (or `importlib.reload` the module) after editing before
+trusting a hit.
+
+`joblib.Memory` follows the same policy: it hashes the arguments, saves the
+function's source (`func_code.py`), discards that function's cache when the
+source changes, and ignores helpers. It hashes the `session_id` string rather
+than the raw file's contents, and each call's folder is hash-named (only the
+module and function folders are readable), which fails the readable-filename
+rule.
 
 ## 7. Test-driven development
 
