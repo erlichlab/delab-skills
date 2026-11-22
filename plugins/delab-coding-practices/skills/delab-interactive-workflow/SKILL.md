@@ -63,7 +63,7 @@ it, because the two of you have been agreeing with each other for an hour and
 that is exactly when a wrong result looks fine.
 
 **Bump the version (semver, principle 13) in the same merge request**, before
-opening it, so that merging releases.
+opening it and before the review below, so the reviewer sees it.
 
 **When they ask you to push, or to open a merge request, review first.** That is
 your trigger — pushing, not committing. Commit freely; review before the work

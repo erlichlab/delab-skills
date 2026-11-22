@@ -257,10 +257,12 @@ unrelated changes.
   and often.
 - **Open a merge request** so changes are reviewed before they land, and **delete
   the branch** once it's merged.
-- **Every merge request bumps the version** (MAJOR.MINOR.PATCH) in the same MR,
-  so that merging is what releases; the release tag is `v` plus the version
-  (`v3.1.0`). Without the bump nothing is tagged, and a result can't be tied to
-  the code that made it. **Patch** = fixes (a bug in the analysis, a wrong
+- **Every merge request bumps the version** (MAJOR.MINOR.PATCH) in the same MR.
+  The version is what a release is cut from, and a result should be tied to the
+  code that made it. The release tag is `v` plus the version (`v3.1.0`). In this
+  repo a GitHub workflow tags it when `plugin.json` changes on `main` (via the
+  GitLab-to-GitHub mirror, so with a delay); nothing enforces the bump, so a
+  forgotten one silently makes no release. **Patch** = fixes (a bug in the analysis, a wrong
   number, wording, infrastructure); **minor** = new analyses or panels, added
   without changing the old ones; **major** = a change that invalidates old
   panels or analyses (earlier results no longer hold or can't be reproduced the

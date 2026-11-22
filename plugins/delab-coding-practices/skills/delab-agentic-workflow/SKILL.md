@@ -196,9 +196,10 @@ gets the description you give it and no template, so the record is yours to
 write. An MR that does not say it was reviewed should not be merged.
 
 **Integrate.** Work happens on a short-lived feature branch per issue
-(principle 13); open a merge request to `main` and close the issue on merge. The work item's
-acceptance criteria carry the planned semver bump (principle 13); the worker
-makes it, and you record it in the MR description.
+(principle 13); open a merge request to `main` and close the issue on merge.
+The work item's acceptance criteria carry the planned semver bump (principle
+13); the worker makes it, and you record it in the MR description. If two MRs
+bump the same version, the later one rebases and takes the next version.
 
 ---
 
