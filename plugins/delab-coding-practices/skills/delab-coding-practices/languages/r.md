@@ -188,6 +188,42 @@ all_trials <- fetch_all_behavior(subjids)    # one bulk query, not length(subjid
 perf <- purrr::map(subjids, ~ session_performance(get_behavior(.x, data = all_trials)))
 ```
 
+## 4. The point of a visualisation comes first
+
+State the point of the panel before plotting (principle 4 in `../SKILL.md`;
+details in [`visualisation.md`](../visualisation.md)). Use `ggplot2`: it
+returns a plot object, so a panel composes into a larger figure.
+
+❌ **Before** — defaults: small text, crowded ticks, no units, opaque points
+
+```r
+plot(df$dose, df$effect)
+```
+
+✅ **After** — one function builds the plot, a separate one saves PNG and PDF
+
+```r
+FONT_SIZE <- 14  # large enough to read at the size the panel is shown
+
+plot_dose_response <- function(dose, effect) {
+  # We plot each subject's effect against dose to show that the effect grows
+  # with dose. Builds the plot only; the caller passes computed values.
+  ggplot(data.frame(dose, effect), aes(dose, effect)) +
+    geom_point(size = 3, alpha = 0.5) +  # alpha: overlap stays visible
+    scale_x_continuous(n.breaks = 4) +   # a modest number of ticks
+    scale_y_continuous(n.breaks = 4) +
+    labs(x = "Dose (mg/kg)", y = "Effect (% change in P(correct))") +
+    theme_classic(base_size = FONT_SIZE)
+}
+
+save_figure <- function(plot, stem) {
+  # Writes `<stem>.png` and `<stem>.pdf`.
+  for (ext in c("png", "pdf")) {
+    ggsave(paste0(stem, ".", ext), plot, width = 4, height = 3.5, dpi = 300)
+  }
+}
+```
+
 ## 5. Small, single-purpose functions
 
 Small functions compose cleanly through the pipe. R lets you keep several in one

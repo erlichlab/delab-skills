@@ -160,6 +160,60 @@ all_trials = fetch_all_behavior(sessids)         # one bulk query, not length(se
 perf = map(s -> session_performance(get_behavior(s; data = all_trials)), sessids)
 ```
 
+## 4. The point of a visualisation comes first
+
+State the point of the panel before plotting (principle 4 in `../SKILL.md`;
+details in [`visualisation.md`](../visualisation.md)). Use `CairoMakie` for
+publication figures. `AlgebraOfGraphics.jl` is an allowed dependency if you
+prefer a declarative style.
+
+❌ **Before** — defaults: small text, crowded ticks, no units, opaque points
+
+```julia
+scatter(dose, effect)
+save("fig.png", current_figure())
+```
+
+✅ **After** — one function draws, a separate one saves PNG and PDF
+
+```julia
+using CairoMakie
+
+const FONT_SIZE = 14  # large enough to read at the size the panel is shown
+
+"""
+We plot each subject's effect against dose to show that the effect grows
+with dose. Draws only; the caller passes computed values.
+"""
+function plot_dose_response!(ax::Axis, dose, effect)
+    scatter!(ax, dose, effect; markersize = 10, color = (:black, 0.5))  # alpha
+    return ax
+end
+
+function plot_dose_response(dose, effect)
+    fig = Figure()
+    ax = Axis(fig[1, 1];
+        xlabel = "Dose (mg/kg)",
+        ylabel = "Effect (% change in P(correct))",
+        xlabelsize = FONT_SIZE, ylabelsize = FONT_SIZE,
+        xticklabelsize = FONT_SIZE, yticklabelsize = FONT_SIZE,
+        xticks = LinearTicks(4), yticks = LinearTicks(4),  # a modest number
+    )
+    plot_dose_response!(ax, dose, effect)
+    return fig
+end
+
+"Write `<stem>.png` and `<stem>.pdf`."
+function save_figure(fig, stem)
+    for ext in ("png", "pdf")
+        save("$stem.$ext", fig)
+    end
+end
+```
+
+The `!` method draws into an existing `Axis`, so the panel drops into a larger
+`Figure`.
+
 ## 5. Small, single-purpose functions
 
 Multiple dispatch rewards small methods with clear names — lean into it.

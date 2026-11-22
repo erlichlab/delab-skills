@@ -152,6 +152,42 @@ perf = arrayfun(@(s) session_performance(get_behavior(s, 'data', all_trials)), .
                 subjids, 'UniformOutput', false);
 ```
 
+## 4. The point of a visualisation comes first
+
+State the point of the panel before plotting (principle 4 in `../SKILL.md`;
+details in [`visualisation.md`](../visualisation.md)). The built-in graphics
+(`scatter`, `exportgraphics`) are enough for readable panels.
+
+❌ **Before** — defaults: small text, crowded ticks, no units, opaque points
+
+```matlab
+scatter(dose, effect)
+saveas(gcf, 'fig.png')
+```
+
+✅ **After** — one function draws, a separate one saves PNG and PDF
+
+```matlab
+function ax = plot_dose_response(dose, effect, ax)
+% We plot each subject's effect against dose to show that the effect grows
+% with dose. Draws only; the caller passes computed values.
+    FONT_SIZE = 14;   % large enough to read at the size the panel is shown
+    if nargin < 3, ax = axes(figure); end
+    scatter(ax, dose, effect, 40, 'filled', 'MarkerFaceAlpha', 0.5);
+    xlabel(ax, 'Dose (mg/kg)');
+    ylabel(ax, 'Effect (% change in P(correct))');
+    ax.FontSize = FONT_SIZE;
+    ax.XTick = linspace(min(xlim(ax)), max(xlim(ax)), 4);  % a modest number
+    ax.YTick = linspace(min(ylim(ax)), max(ylim(ax)), 4);  % of ticks
+end
+
+function save_figure(fig, stem)
+% Writes <stem>.png and <stem>.pdf.
+    exportgraphics(fig, [stem '.png'], 'Resolution', 300);
+    exportgraphics(fig, [stem '.pdf'], 'ContentType', 'vector');
+end
+```
+
 ## 5. Small, single-purpose functions
 
 Keep functions small — but MATLAB's *one function per file* rule means a pile of

@@ -159,6 +159,43 @@ all_trials = fetch_all_behavior(subjids)       # one bulk query, not len(subjids
 perf = {s: session_performance(get_behavior(s, data=all_trials)) for s in subjids}
 ```
 
+## 4. The point of a visualisation comes first
+
+State the point of the panel before plotting (principle 4 in `../SKILL.md`;
+details in [`visualisation.md`](../visualisation.md)). Plain `matplotlib` is
+enough for readable panels.
+
+❌ **Before** — defaults: small text, crowded ticks, no units, opaque points
+
+```python
+plt.scatter(df.dose, df.effect)
+plt.savefig("fig.png")
+```
+
+✅ **After** — one function draws, a separate one saves PNG and PDF
+
+```python
+FONT_SIZE = 14  # large enough to read at the size the panel is shown
+
+def plot_dose_response(dose, effect, ax=None):
+    """We plot each subject's effect against dose to show that the effect
+    grows with dose. Draws only; the caller passes computed values."""
+    if ax is None:
+        _, ax = plt.subplots()
+    ax.scatter(dose, effect, s=40, alpha=0.5)  # alpha: overlap stays visible
+    ax.set_xlabel("Dose (mg/kg)", fontsize=FONT_SIZE)
+    ax.set_ylabel("Effect (% change in P(correct))", fontsize=FONT_SIZE)
+    ax.tick_params(labelsize=FONT_SIZE)
+    ax.xaxis.set_major_locator(plt.MaxNLocator(4))  # a modest number of ticks
+    ax.yaxis.set_major_locator(plt.MaxNLocator(4))
+    return ax
+
+def save_figure(fig, stem):
+    """Write `<stem>.png` and `<stem>.pdf`."""
+    for ext in ("png", "pdf"):
+        fig.savefig(f"{stem}.{ext}", bbox_inches="tight", dpi=300)
+```
+
 ## 5. Small, single-purpose functions
 
 ❌ **Before** — one function loads, cleans, models, and plots
