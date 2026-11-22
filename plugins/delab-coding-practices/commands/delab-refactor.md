@@ -18,8 +18,8 @@ after* idioms in the language file.
 
 How to go about it:
 
-- Work in small, reviewable steps, on a feature branch (principle 12).
-- Preserve behavior. Where practical, add or run a test first (principle 7,
+- Work in small, reviewable steps, on a feature branch (principle 13).
+- Preserve behavior. Where practical, add or run a test first (principle 8,
   synthetic fixtures) so you can show the refactor is behavior-preserving.
 - Don't touch unrelated code.
 - For each change, briefly explain *which principle* it serves and *why* — the

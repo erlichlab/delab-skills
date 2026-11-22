@@ -439,7 +439,7 @@ class CheckLinksFencedAnchors(unittest.TestCase):
     def test_link_into_an_unclosed_fence_names_the_real_cause(self):
         """The generic 'dead anchor' message would hide an unclosed fence as
         the actual cause; the checker must call it out instead of leaving the
-        reader to assume the heading is simply missing (principle 9)."""
+        reader to assume the heading is simply missing (principle 10)."""
         root = self.build("```python\n# load data\n\n# Load Data\n", "other.md#load-data")
         problems = check_links(root)
         self.assertTrue(any("unclosed fenced code block" in p for p in problems))

@@ -104,7 +104,7 @@ the plot can never be one panel of a bigger figure.
 ✅ **After** — I/O, analysis, and a plot that accepts an `ax`
 
 ```python
-# --- I/O layer: load, with cache-or-compute (principle 6) ---
+# --- I/O layer: load, with cache-or-compute (principle 7) ---
 def get_behavior(subjid: str) -> pd.DataFrame:
     data = load_from_cache(subjid)
     if data is None:                       # cache miss: do the work once, save it
@@ -135,9 +135,9 @@ for ax, subj in zip(axs, subjects):
     plot_behavior(subj, ax=ax)
 ```
 
-> `get_behavior`'s cache-or-compute branch is the pattern principle 6 spells
+> `get_behavior`'s cache-or-compute branch is the pattern principle 7 spells
 > out: `load_from_cache` and `save_to_cache` must key on the inputs, the code
-> version and the parameters, and use a readable filename (see principle 6
+> version and the parameters, and use a readable filename (see principle 7
 > below).
 
 **Inject pre-fetched data.** Give the I/O function an optional `data` argument: if
@@ -159,7 +159,49 @@ all_trials = fetch_all_behavior(subjids)       # one bulk query, not len(subjids
 perf = {s: session_performance(get_behavior(s, data=all_trials)) for s in subjids}
 ```
 
-## 4. Small, single-purpose functions
+## 4. The point of a visualisation comes first
+
+State the point of the panel before plotting (principle 4 in `../SKILL.md`;
+details in [`visualisation.md`](../visualisation.md)). Plain `matplotlib` is
+enough for readable panels.
+
+❌ **Before** — defaults: small text, opaque points, no units on the labels
+
+```python
+plt.scatter(df.dose, df.effect)
+plt.savefig("fig.png")
+```
+
+✅ **After** — one function draws, a separate one saves PNG and PDF
+
+```python
+import matplotlib.pyplot as plt
+
+FONT_SIZE = 14  # large enough to read at the size the panel is shown
+
+def plot_dose_response(dose, effect, ax=None):
+    """We plot each subject's effect against dose to show that the effect
+    grows with dose. Draws only; the caller passes computed values. (This
+    function makes one manuscript panel, so its docstring states that
+    panel's point; a general-purpose plotting function would say when to
+    use it instead.)"""
+    if ax is None:
+        _, ax = plt.subplots()
+    ax.scatter(dose, effect, s=40, alpha=0.5)  # alpha: overlap stays visible
+    ax.set_xlabel("Dose (mg/kg)", fontsize=FONT_SIZE)
+    ax.set_ylabel("Effect (% change in P(correct))", fontsize=FONT_SIZE)
+    ax.tick_params(labelsize=FONT_SIZE)
+    ax.xaxis.set_major_locator(plt.MaxNLocator(4))  # a modest number of ticks
+    ax.yaxis.set_major_locator(plt.MaxNLocator(4))
+    return ax
+
+def save_figure(fig, stem):
+    """Write `<stem>.png` and `<stem>.pdf`."""
+    for ext in ("png", "pdf"):
+        fig.savefig(f"{stem}.{ext}", bbox_inches="tight", dpi=300)
+```
+
+## 5. Small, single-purpose functions
 
 ❌ **Before** — one function loads, cleans, models, and plots
 
@@ -185,7 +227,7 @@ trials = clean(load_trials(path))
 model = fit_rt_model(trials)
 ```
 
-## 5. Map / vectorize instead of hand-rolled loops
+## 6. Map / vectorize instead of hand-rolled loops
 
 ❌ **Before** — manual pre-allocate-and-fill loop
 
@@ -245,11 +287,11 @@ body. (If you'd rather not have `fit_subject` reach for the global `big_df`,
 pass it in and bind it: `map(partial(fit_subject, big_df), subjids)` — see
 principle 2.)
 
-## 6. Cache expensive local results
+## 7. Cache expensive local results
 
 Cache to disk so unchanged work isn't repeated. The key covers the inputs, the
 parameters, and the code of the cached function; the file has a readable name,
-and the key is stored in a sidecar next to it (see SKILL.md principle 6).
+and the key is stored in a sidecar next to it (see SKILL.md principle 7).
 
 ❌ **Before** — recomputes a 20-minute step on every run
 
@@ -334,7 +376,7 @@ than the raw file's contents, and each call's folder is hash-named (only the
 module and function folders are readable), which fails the readable-filename
 rule.
 
-## 7. Test-driven development
+## 8. Test-driven development
 
 Write the test first with `pytest`, watch it fail, then implement.
 
@@ -357,7 +399,7 @@ Every bug fixed gets a regression test that reproduces it first.
 Never point a test at `/data/...`; construct the minimal input inline or with a
 `pytest` fixture.
 
-## 8. Never store secrets or hard-coded paths
+## 9. Never store secrets or hard-coded paths
 
 ❌ **Before** — credentials and an absolute path baked into source
 
@@ -393,7 +435,7 @@ listing the variable *names* (never values), and add `.env` and `.cache/` to
 > functions (principle 2). Don't wrap per-row data or numpy arrays in pydantic
 > models — that's the wrong tool and it will be slow.
 
-## 9. Fail loudly
+## 10. Fail loudly
 
 ❌ **Before** — a silent fallback hides a real problem
 
@@ -419,7 +461,7 @@ A bare `except: pass` or a stand-in `0.0`/`NaN` turns a five-minute bug into a
 wrong figure you trust for a month. Use a fallback only when it's a deliberate,
 documented choice — and say why in a comment.
 
-## 10. Comments explain the present, not the history
+## 11. Comments explain the present, not the history
 
 ❌ **Before** — changelog and planning noise
 
@@ -439,12 +481,12 @@ rate = np.median(counts) / window
 The reader may not have your commit log, tickets, or session notes — comment the
 code that's in front of them. The same goes for commit messages.
 
-## 11. Optimize only when needed — and parallelize at the coarsest level
+## 12. Optimize only when needed — and parallelize at the coarsest level
 
 Correctness and clarity first. When something really is too slow, **profile
 before you optimize** — `python -m cProfile`, `%timeit` in a notebook,
 `line_profiler` for a hot function, or `py-spy` to sample a running process.
-Usually the fix is caching (principle 6) or vectorizing (principle 5), not
+Usually the fix is caching (principle 7) or vectorizing (principle 6), not
 parallelism.
 
 When you do need parallelism, run it at the coarsest level — one substantial task

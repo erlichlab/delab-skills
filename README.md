@@ -152,9 +152,10 @@ The plugin lives under `plugins/delab-coding-practices/`; the skill and its
 supporting files are in
 `plugins/delab-coding-practices/skills/delab-coding-practices/`:
 
-- **`SKILL.md`** — the twelve core principles, stated language-agnostically:
+- **`SKILL.md`** — the thirteen core principles, stated language-agnostically:
   package/environment management, functional code, keeping I/O, analysis, and
-  plotting in separate layers, small single-purpose functions,
+  plotting in separate layers, stating the point of a visualisation first
+  (details in `visualisation.md`), small single-purpose functions,
   `map`/vectorization over hand-rolled loops, caching expensive results,
   test-driven development, never storing secrets or hard-coded paths, failing
   loudly, comments that explain the present rather than the history,
@@ -163,7 +164,7 @@ supporting files are in
 - **`languages/`** — per-language idioms and concrete *before → after*
   examples: `python.md`, `julia.md`, `matlab.md`, `r.md`.
 - **[`gitlab-workflow.md`](plugins/delab-coding-practices/skills/delab-coding-practices/gitlab-workflow.md)**
-  — the practical branch/MR setup behind principle 12, which both workflows use.
+  — the practical branch/MR setup behind principle 13, which both workflows use.
 
 The two workflow skills sit alongside it, and carry everything about *how work
 is organized* rather than how code is written:
@@ -197,6 +198,7 @@ delab-skills/
 │           ├── delab-coding-practices/  # the principles
 │           │   ├── SKILL.md
 │           │   ├── gitlab-workflow.md
+│           │   ├── visualisation.md
 │           │   └── languages/
 │           ├── delab-agentic-workflow/  # agents orchestrating agents
 │           └── delab-interactive-workflow/
@@ -239,7 +241,7 @@ its own small merge request that changes both files.
 
 ## Status
 
-`v2.0`. Coding practices and workflows are separate skills: pick a workflow at
+`v3.0`. Coding practices and workflows are separate skills: pick a workflow at
 the start of a session, and the principles come with it. All four language
 files (Python, Julia, MATLAB, R) are fleshed out, and every skill follows the
 Agent Skills standard, so they travel to agents other than Claude Code.
@@ -247,7 +249,7 @@ Feedback and contributions from the lab are welcome.
 
 Planned for a later version: a section on scaling analyses to the cluster
 (SLURM) — job arrays over sessions/subjects, resource requests, and how it
-extends principle 11.
+extends principle 12.
 
 ## Credits
 
@@ -264,4 +266,4 @@ Keep the principles language-agnostic in `SKILL.md`; put language-specific
 tooling and examples in the `languages/` files. Every practice should come with
 a short *before → after* pair and a one-line reason it matters. Run
 `uv run python scripts/check_plugin.py`, then work on a short-lived branch and open a
-merge/pull request (principle 12).
+merge/pull request (principle 13).

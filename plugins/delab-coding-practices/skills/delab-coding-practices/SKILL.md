@@ -4,10 +4,12 @@ description: >-
   Coding standards for the Erlich lab (delab). Load this whenever you are
   writing, reviewing, or refactoring research code in Python, Julia, MATLAB,
   or R — behavior/rig control, ephys and imaging analysis, modeling, or
-  statistics. Enforces reproducible environments, functional and testable
-  code, small functions, vectorization, cached computation, and keeping
-  secrets and hard-coded paths out of the repository. When the user is working
-  in a specific language, also read the matching file in `languages/`.
+  statistics — and whenever you are asked to make a figure, plot, chart, or
+  other visualisation. Enforces reproducible environments, functional and
+  testable code, small functions, vectorization, cached computation, keeping
+  secrets and hard-coded paths out of the repository, and stating the point
+  of a figure before plotting. When the user is working in a specific
+  language, also read the matching file in `languages/`.
 ---
 
 # delab coding practices
@@ -77,7 +79,7 @@ it. Keep them apart.
 
 - **I/O** — loads and saves data (files, caches, databases). Knows about paths
   and formats; hands back plain in-memory data. Pair it with caching (principle
-  6): try the cache, and only compute-and-save on a miss. Give it an optional
+  7): try the cache, and only compute-and-save on a miss. Give it an optional
   argument to inject already-loaded data, so a caller can pre-fetch once (one
   bulk query instead of N) and run offline — or in tests — with no I/O at all.
 - **Analysis** — pure computation on that in-memory data. No file access, no
@@ -91,7 +93,18 @@ payoff: you can test analysis without a disk or a display, swap a cache for a
 database without touching analysis, and reuse a one-panel plot inside a larger
 figure.
 
-## 4. Small, single-purpose functions
+## 4. The point of a visualisation comes first
+
+The central message to the audience should be immediately clear from the
+visualisation. Therefore, as an agent, when generating a plot (or other
+visualisation), make sure the user (or project manager) has clearly stated the
+*point* that the panel should convey. If they haven't, ask before you plot.
+
+- The same data supports many different figures; the point decides which one.
+
+See [`visualisation.md`](visualisation.md) for details.
+
+## 5. Small, single-purpose functions
 
 A function should do one thing, be nameable in a short verb phrase, and fit on
 a screen. If you need "and" to describe it, split it.
@@ -99,7 +112,7 @@ a screen. If you need "and" to describe it, split it.
 - Small functions are testable, reusable, and self-documenting.
 - Deep nesting or a 200-line function is a refactor waiting to happen.
 
-## 5. Map / vectorize instead of hand-rolled loops
+## 6. Map / vectorize instead of hand-rolled loops
 
 Prefer a `map`, comprehension, or vectorized array operation over a manual
 index loop that pre-allocates and fills.
@@ -109,14 +122,14 @@ index loop that pre-allocates and fills.
   no speedup at all — e.g. fitting one model per subject — this is shorter, has
   no index bookkeeping to get wrong, reads as *what* it does, and lets you test
   `fit_subject` on its own. It naturally pushes you toward small functions
-  (principle 4).
+  (principle 5).
 - **For numeric array work it's *also* much faster.** A vectorized operation
   replaces a Python-level loop with a compiled one.
 - "For each x, compute f(x)" → `map(f, xs)` / `[f(x) for x in xs]` / vectorized.
 - Reserve explicit loops for genuine sequential state (running accumulators,
   early exit, side-effecting I/O).
 
-## 6. Cache expensive local results
+## 7. Cache expensive local results
 
 If a computation is slow and its inputs haven't changed, don't recompute it —
 cache the result to disk, keyed on the inputs and the code, and reuse it. Three
@@ -150,7 +163,7 @@ rules, with no setup beyond hashing:
 This is what lets analysis notebooks re-run in seconds instead of hours. Sharing
 a cache between people or machines is outside this principle.
 
-## 7. Test-driven development
+## 8. Test-driven development
 
 Write a test that captures the intended behavior, watch it fail, then write the
 code that makes it pass. Tests describe *what the code should do* and let you
@@ -161,10 +174,10 @@ refactor without fear.
 - Tests run with one command and (ideally) in CI on every push.
 - **Corollary — use synthetic fixtures, not real data files.** A test builds its
   own tiny inputs, so a fresh clone with no lab data present still passes. This
-  keeps tests portable and fast, and dovetails with principle 8 (no hard-coded
+  keeps tests portable and fast, and dovetails with principle 9 (no hard-coded
   data paths).
 
-## 8. Never store secrets or credentials in code
+## 9. Never store secrets or credentials in code
 
 No passwords, API keys, tokens, or connection strings in source — ever, not
 even "temporarily." Once committed, assume it's compromised.
@@ -178,7 +191,7 @@ even "temporarily." Once committed, assume it's compromised.
   — `.DS_Store`, editor swap files — set a **global** gitignore once so you never
   fight it per-project: `git config --global core.excludesfile ~/.gitignore_global`.
 
-## 9. Fail loudly
+## 10. Fail loudly
 
 When something unexpected happens, stop and surface it — don't paper over it with
 a silent default, a bare catch-all, or a `NaN` that quietly propagates. A loud
@@ -186,12 +199,12 @@ failure at the source is a five-minute fix; a silent one becomes a wrong figure
 you trust for a month.
 
 - Validate inputs at the boundary and raise with a clear message (this is part
-  of what pydantic buys you — principle 8).
+  of what pydantic buys you — principle 9).
 - Never swallow an exception you didn't expect and can't handle.
 - A fallback value is acceptable only when it's a *deliberate, documented*
-  choice — say why in a comment (principle 10).
+  choice — say why in a comment (principle 11).
 
-## 10. Comments explain the present, not the history
+## 11. Comments explain the present, not the history
 
 A comment explains the code that is there *now* — an invariant it must keep, or a
 non-obvious reason it has to be this way. It is not a changelog.
@@ -205,14 +218,14 @@ non-obvious reason it has to be this way. It is not a changelog.
 - **Corollary:** the same applies to commit messages — say what the change does
   and why, understandable to someone without the back-story.
 
-## 11. Optimize only when needed — and parallelize at the coarsest level
+## 12. Optimize only when needed — and parallelize at the coarsest level
 
 Write for correctness and clarity first. Most code is fast enough; don't trade
 readability for speed you don't need.
 
 - **Measure before optimizing.** Profile to find the actual bottleneck instead of
   guessing — the slow line is rarely where you'd bet. Often the real fix is
-  caching (principle 6) or vectorizing (principle 5), not hand-tuning, and those
+  caching (principle 7) or vectorizing (principle 6), not hand-tuning, and those
   come first.
 - **When you do need speed, parallelize at the highest level.** Most lab code is
   *embarrassingly parallel* over sessions, subjects, or animals — independent
@@ -229,7 +242,7 @@ readability for speed you don't need.
 - Scaling past one machine (a cluster / SLURM) is the same idea one level up —
   covered in a later version.
 
-## 12. Work in short-lived, feature-specific branches
+## 13. Work in short-lived, feature-specific branches
 
 Do your work on a branch named for one feature or fix, keep it small, and merge it
 into `main` through a merge request. Don't let a branch live for weeks or collect
@@ -247,8 +260,8 @@ unrelated changes.
 - The lab uses **GitLab** by default (a few projects live on GitHub); the flow is
   the same — branch, push, open a merge/pull request, merge to `main`.
 
-Commit messages follow principle 10 (explain the present, not the history), and
-`.gitignore` keeps generated cruft out of the repo (principle 8). For the
+Commit messages follow principle 11 (explain the present, not the history), and
+`.gitignore` keeps generated cruft out of the repo (principle 9). For the
 practical GitLab setup — deleting merged branches automatically, and a backstop
 for catching drifting branches — see [`gitlab-workflow.md`](gitlab-workflow.md).
 

@@ -65,7 +65,7 @@ PM decomposes into small work items, each written down
 ## Why issue-driven development
 
 Each work item becomes a durable record — a GitLab issue, or a file in the repo
-(principle 12). This isn't bureaucracy:
+(principle 13). This isn't bureaucracy:
 
 - The work item is a **shared spec** — you, the worker, and the reviewers all
   work from the same description, whether it lives on an issue board or in
@@ -74,7 +74,7 @@ Each work item becomes a durable record — a GitLab issue, or a file in the rep
 - Issues are **traceable** — every branch and merge request ties back to one, so
   it's clear why each change exists.
 
-Keep work items **small and independently deliverable** — this is principle 4
+Keep work items **small and independently deliverable** — this is principle 5
 (small functions) one level up. Small items are easier to specify, review, and
 parallelize, and agents do markedly better on a tight scope than on a sprawling
 one.
@@ -86,7 +86,7 @@ confirmation bias as a person marking their own homework. Require **two fresh
 reviewer subagents**:
 
 - **Correctness** — actively tries to break it: wrong results, edge cases, silent
-  failures (principle 9). For analyses, that it recovers the known answer on
+  failures (principle 10). For analyses, that it recovers the known answer on
   synthetic data (below) and that magnitudes and units are sane.
 - **Style** — conformance to every principle in the `delab-coding-practices`
   skill.
@@ -96,13 +96,13 @@ reviewer subagents**:
 The development method depends on what you're building:
 
 - **Infrastructure** (tools, plumbing, pipelines' scaffolding) → **standard TDD**:
-  write a failing test for the acceptance criteria, then implement (principle 7).
+  write a failing test for the acceptance criteria, then implement (principle 8).
 - **Data science** (an analysis pipeline) → **synthetic data first**. Generate
   data with a *known ground truth*, write a test that the pipeline recovers it,
   then build the analysis until it does — **test-driven data science**. Real data
   has no answer key, so on real data you can't tell a bug from a discovery;
   synthetic data *is* your answer key. (This is the analysis-scale version of the
-  synthetic-fixtures corollary under principle 7.)
+  synthetic-fixtures corollary under principle 8.)
 
 ## Sandbox the agent
 
@@ -117,7 +117,7 @@ anywhere can do real damage from a single bad command.
   `bubblewrap`/`firejail` exist but the lab hasn't vetted them — treat them as
   options to evaluate, not a recommendation.
 - Regardless of sandbox: keep real data and secrets out of the agent's reach
-  (principle 8), and confirm before anything destructive or irreversible.
+  (principle 9), and confirm before anything destructive or irreversible.
 
 ## Give the agent its own GitLab identity and a scoped token
 
@@ -150,7 +150,7 @@ and role, not scope:
   open/update MRs. Leave merging into protected `main` to a Maintainer (you) —
   which matches the review gate: the agent proposes, a human merges.
 - **Short expiry, and rotate.** Put the token in an environment variable or the
-  git credential store; never commit it (principle 8), and revoke it when the bot
+  git credential store; never commit it (principle 9), and revoke it when the bot
   is done.
 
 Scope cheat-sheet (GitLab):
@@ -172,7 +172,7 @@ Scope cheat-sheet (GitLab):
 - **Trusting output you didn't run.** Especially plots and statistics.
 - **Skipping synthetic-data tests** on an analysis — then you have no answer key.
 - **One agent writing and reviewing** its own work.
-- **Long-lived branches** that drift from `main` (principle 12).
+- **Long-lived branches** that drift from `main` (principle 13).
 - **Letting agents share your working tree.** Workers get their own checkout so
   several can run at once, and so none of them checks out a branch while you are
   mid-edit. Two things to know: a worker's checkout comes from the *remote*
@@ -183,7 +183,7 @@ Scope cheat-sheet (GitLab):
 
 ## Tooling notes
 
-- **Issues / branches / MRs:** GitLab by default (principle 12).
+- **Issues / branches / MRs:** GitLab by default (principle 13).
 - **Roles map to agents.** You (the PI) talk to the **PM** — the main Claude
   Code session. Load this skill —
   **`/delab-coding-practices:delab-agentic-workflow`** — at the start of the
