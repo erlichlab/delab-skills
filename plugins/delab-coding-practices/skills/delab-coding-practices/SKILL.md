@@ -262,9 +262,9 @@ unrelated changes.
   code that made it. The release tag is `v` plus the version (`v3.1.0`). In this
   repo a GitHub workflow tags it when `plugin.json` changes on `main` (via the
   GitLab-to-GitHub mirror, so with a delay); nothing enforces the bump, so a
-  forgotten one silently makes no release. **Patch** = fixes (a bug in the analysis, a wrong
-  number, wording, infrastructure); **minor** = new analyses or panels, added
-  without changing the old ones; **major** = a change that invalidates old
+  forgotten one silently makes no release. **Patch** = fixes (a bug in the
+  analysis, a wrong number, wording, infrastructure); **minor** = new analyses
+  or panels, added without changing the old ones; **major** = a change that invalidates old
   panels or analyses (earlier results no longer hold or can't be reproduced the
   same way). For this plugin the levels apply to what consumers rely on: major
   when principles are renumbered or removed (people cite "principle N"), minor
