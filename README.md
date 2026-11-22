@@ -203,6 +203,7 @@ delab-skills/
 ├── .gitlab/merge_request_templates/     # MR checklist, incl. the review record
 ├── scripts/check_plugin.py              # validates the layout above
 ├── .gitlab-ci.yml                       # runs it on every push
+├── .python-version                      # pinned Python, mirrored in the CI image
 ├── LICENSE
 └── README.md
 ```
@@ -218,14 +219,23 @@ skill and says nothing), and Markdown links that must resolve. None of it is exe
 nothing appears, so it's checked instead:
 
 ```bash
-python3 -m unittest discover -s scripts -p 'test_*.py'   # the checker's own tests
-python3 scripts/check_plugin.py                          # this repo's tree
+uv run python -m unittest discover -s scripts -p 'test_*.py'   # the checker's own tests
+uv run python scripts/check_plugin.py                          # this repo's tree
 ```
 
 The checker only ever runs against a valid tree, so it cannot catch itself
 wrongly accepting a bad one — that's what the tests are for. Standard library
 only, no environment to set up, and both run in CI on every push. Run them
 before opening a merge request.
+
+### Development
+
+Run the scripts through `uv run` as shown above, never a bare `python3` (the
+system one on a lab machine may be too old).
+
+The Python version is pinned in `.python-version` and mirrored in the `image:`
+of `.gitlab-ci.yml`, so local runs and GitLab CI behave the same. Bumping the pin is
+its own small merge request that changes both files.
 
 ## Status
 
@@ -253,5 +263,5 @@ Julia guidance — draw on that work.
 Keep the principles language-agnostic in `SKILL.md`; put language-specific
 tooling and examples in the `languages/` files. Every practice should come with
 a short *before → after* pair and a one-line reason it matters. Run
-`python3 scripts/check_plugin.py`, then work on a short-lived branch and open a
+`uv run python scripts/check_plugin.py`, then work on a short-lived branch and open a
 merge/pull request (principle 12).
