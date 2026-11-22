@@ -4,10 +4,12 @@ description: >-
   Coding standards for the Erlich lab (delab). Load this whenever you are
   writing, reviewing, or refactoring research code in Python, Julia, MATLAB,
   or R — behavior/rig control, ephys and imaging analysis, modeling, or
-  statistics. Enforces reproducible environments, functional and testable
-  code, small functions, vectorization, cached computation, and keeping
-  secrets and hard-coded paths out of the repository. When the user is working
-  in a specific language, also read the matching file in `languages/`.
+  statistics — and whenever you are asked to make a figure, plot, chart, or
+  other visualisation. Enforces reproducible environments, functional and
+  testable code, small functions, vectorization, cached computation, keeping
+  secrets and hard-coded paths out of the repository, and stating the point
+  of a figure before plotting. When the user is working in a specific
+  language, also read the matching file in `languages/`.
 ---
 
 # delab coding practices

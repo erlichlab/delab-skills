@@ -22,8 +22,13 @@ region A and region B changes behavior by different amounts, in every subject".
   draw a default; a figure built without a point is a guess about what matters.
 - **As a subagent you have no one to ask:** the point must be in your work
   item. If it is missing, return and say so instead of plotting.
-- Write the point down: in the figure function's docstring, and in the figure
-  legend or caption. It is what you and the reviewer check the figure against.
+- Write the point down. A general-purpose plotting function's docstring says
+  when to use it ("Use this to compare X and Y across conditions"). A function
+  that makes one specific manuscript panel states that panel's point ("We plot
+  control animals in black and drug animals in red and zoom in on the first 10
+  days of learning to emphasize the differences in early training"). Either
+  way the point also goes in the figure legend or caption; it is what you and
+  the reviewer check the figure against.
 - One panel, one point. If you have two points, make two panels.
 - If the point changes, the figure changes. Do not patch the old figure.
 
