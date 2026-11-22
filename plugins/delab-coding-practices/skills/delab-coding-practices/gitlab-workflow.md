@@ -44,6 +44,7 @@ project-manager agent (see the `delab-agentic-workflow` skill).
 ```
 git switch -c feat/short-name    # branch off an up-to-date main
 # ... small, focused change; commit with a clear message (principle 11) ...
+# - [ ] Version bumped (semver) in plugin.json / the project's version file
 git push -u origin feat/short-name
 # open an MR, get it reviewed, merge to main (source branch auto-deletes)
 ```

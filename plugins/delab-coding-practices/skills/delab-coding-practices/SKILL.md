@@ -257,6 +257,16 @@ unrelated changes.
   and often.
 - **Open a merge request** so changes are reviewed before they land, and **delete
   the branch** once it's merged.
+- **Every merge request bumps the version** (MAJOR.MINOR.PATCH) in the same MR,
+  so that merging is what releases; the release tag is `v` plus the version
+  (`v3.1.0`). Without the bump nothing is tagged, and a result can't be tied to
+  the code that made it. **Patch** = fixes (a bug in the analysis, a wrong
+  number, wording, infrastructure); **minor** = new analyses or panels, added
+  without changing the old ones; **major** = a change that invalidates old
+  panels or analyses (earlier results no longer hold or can't be reproduced the
+  same way). For this plugin the levels apply to what consumers rely on: major
+  when principles are renumbered or removed (people cite "principle N"), minor
+  when something is added, patch for fixes and wording.
 - The lab uses **GitLab** by default (a few projects live on GitHub); the flow is
   the same — branch, push, open a merge/pull request, merge to `main`.
 

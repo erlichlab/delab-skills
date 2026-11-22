@@ -62,6 +62,9 @@ this conversation still gets read adversarially by something that did not write
 it, because the two of you have been agreeing with each other for an hour and
 that is exactly when a wrong result looks fine.
 
+**Bump the version (semver, principle 13) in the same merge request**, before
+opening it, so that merging releases.
+
 **When they ask you to push, or to open a merge request, review first.** That is
 your trigger — pushing, not committing. Commit freely; review before the work
 leaves the machine. Spawn a fresh reviewer on the change — a correctness pass
