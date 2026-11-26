@@ -37,26 +37,35 @@ class NotBumped(ValueError):
     """The version is valid but not above the target branch's."""
 
 
-def parse_version(manifest_text: str) -> tuple[int, int, int]:
+def parse_version(manifest_text: str, source: str = "plugin.json") -> tuple[int, int, int]:
     """The (MAJOR, MINOR, PATCH) a plugin.json text declares; raises if absent or not X.Y.Z."""
     try:
-        version = json.loads(manifest_text).get("version")
-    except (json.JSONDecodeError, AttributeError) as exc:
-        raise ValueError(f"plugin.json is not a JSON object: {exc}") from exc
+        manifest = json.loads(manifest_text)
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"{source}: not valid JSON: {exc}") from exc
+    if not isinstance(manifest, dict):
+        raise ValueError(f"{source}: not a JSON object")
+    version = manifest.get("version")
     if not isinstance(version, str) or not VERSION_RE.match(version):
-        raise ValueError(f"`version` is missing or not of the form X.Y.Z: {version!r}")
+        raise ValueError(
+            f"{source}: `version` is missing or not of the form X.Y.Z: {version!r}"
+        )
     major, minor, patch = map(int, version.split("."))
     return major, minor, patch
+
+
+def _fmt(version: tuple[int, int, int]) -> str:
+    return ".".join(map(str, version))
 
 
 def check_bump(target: tuple[int, int, int], new: tuple[int, int, int]) -> None:
     """Raise unless `new` is strictly greater than `target`."""
     if new <= target:
-        fmt = lambda v: ".".join(map(str, v))
         raise NotBumped(
-            f"version {fmt(new)} has not been bumped above the target branch's "
-            f"{fmt(target)}; bump `version` in plugin.json (principle 13), or "
-            f"add the `{SKIP_LABEL}` label to this merge request."
+            f"version {_fmt(new)} has not been bumped above the target branch's "
+            f"{_fmt(target)}; bump `version` in plugin.json (principle 13), or "
+            f"add the `{SKIP_LABEL}` label to this merge request and run a new "
+            "pipeline (push or Run pipeline); retrying this job is not enough."
         )
 
 
@@ -85,8 +94,14 @@ def main(argv: list[str] | None = None, repo: Path = Path(".")) -> int:
         print(f"`{SKIP_LABEL}` label present: skipping the version-bump check.")
         return EXIT_OK
     try:
-        target = parse_version(read_at_ref(repo, args.target_ref, args.manifest))
-        new = parse_version((repo / args.manifest).read_text(encoding="utf-8"))
+        target = parse_version(
+            read_at_ref(repo, args.target_ref, args.manifest),
+            f"{args.manifest} on {args.target_ref}",
+        )
+        new = parse_version(
+            (repo / args.manifest).read_text(encoding="utf-8"),
+            f"{args.manifest} on this branch",
+        )
         check_bump(target, new)
     except NotBumped as exc:
         print(f"check_version_bump.py: {exc}", file=sys.stderr)

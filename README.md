@@ -204,7 +204,7 @@ delab-skills/
 │           └── delab-interactive-workflow/
 ├── .gitlab/merge_request_templates/     # MR checklist, incl. the review record
 ├── scripts/check_plugin.py              # validates the layout above
-├── .gitlab-ci.yml                       # runs it on every push
+├── .gitlab-ci.yml                       # runs it on pushes and MRs
 ├── .python-version                      # pinned Python, mirrored in the CI image
 ├── LICENSE
 └── README.md
@@ -227,7 +227,7 @@ uv run python scripts/check_plugin.py                          # this repo's tre
 
 The checker only ever runs against a valid tree, so it cannot catch itself
 wrongly accepting a bad one — that's what the tests are for. Standard library
-only, no environment to set up, and both run in CI on every push. Run them
+only, no environment to set up, and both run in CI on pushes and merge requests. Run them
 before opening a merge request.
 
 ### Development

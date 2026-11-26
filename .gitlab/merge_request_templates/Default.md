@@ -8,7 +8,7 @@
 
 ## Release
 
-- [ ] Version bumped (semver, principle 13). CI checks this; the `no-release` label skips it.
+- [ ] Version bumped (semver, principle 13). CI checks this; the `no-release` label skips it (add it, then run a new pipeline; retrying the failed job is not enough as far as we know).
 
 ## Review
 
