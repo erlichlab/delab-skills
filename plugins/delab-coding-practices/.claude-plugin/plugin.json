@@ -1,7 +1,7 @@
 {
   "name": "delab-coding-practices",
   "description": "Coding standards for the Erlich lab (delab) plus the two workflows the lab runs them in. The principles skill covers reproducible environments, functional and testable code, small functions, vectorization, cached computation, and keeping secrets and hard-coded paths out of the repo, with before/after examples for Python, Julia, MATLAB and R. Two workflow skills cover pair programming in an IDE and agents orchestrating agents through issues, branches and adversarial review.",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "author": {
     "name": "Erlich Lab (delab), Sainsbury Wellcome Centre",
     "url": "https://gitlab.com/sainsbury-wellcome-centre/delab"

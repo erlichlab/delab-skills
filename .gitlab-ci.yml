@@ -5,9 +5,35 @@
 # The checker runs against this repo's own valid tree, so it only proves the
 # tree is good — a checker that wrongly accepts bad input passes too. The unit
 # tests supply the invalid inputs this repo does not contain.
+
+# Run a pipeline for each merge request and for branch pushes that have no open
+# merge request, so a pushed MR branch does not get two pipelines. Without this,
+# adding a merge_request_event rule to one job would duplicate or drop jobs.
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH
+
 check:
   # Same version as .python-version; change both in the same commit.
   image: python:3.14-slim
   script:
+    # The version-bump tests build throwaway git repositories.
+    - apt-get update -qq && apt-get install -y -qq git
     - python3 -m unittest discover -s scripts -p 'test_*.py'
     - python3 scripts/check_plugin.py
+
+# Principle 13: every merge request raises the plugin version, or a release is
+# silently missed. Merge request pipelines only; the target branch is fetched
+# because the clone is shallow and has no origin/<target>. Label an MR
+# `no-release` to skip. python:slim has no git, so install it.
+version-bump:
+  image: python:3.14-slim
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+  script:
+    - apt-get update -qq && apt-get install -y -qq git
+    - git fetch --depth=1 origin "$CI_MERGE_REQUEST_TARGET_BRANCH_NAME"
+    - python3 scripts/check_version_bump.py --target-ref FETCH_HEAD --labels "$CI_MERGE_REQUEST_LABELS"

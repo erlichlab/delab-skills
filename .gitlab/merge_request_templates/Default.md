@@ -8,7 +8,7 @@
 
 ## Release
 
-- [ ] Version bumped (semver, principle 13).
+- [ ] Version bumped (semver, principle 13). CI checks this; the `no-release` label skips it.
 
 ## Review
 
