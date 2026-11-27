@@ -49,7 +49,11 @@ git push -u origin feat/short-name
 ```
 
 Before opening the MR, check the box "Version bumped (semver, principle 13)":
-every MR bumps the version.
+every MR bumps the version. The `version-bump` CI job fails an MR that does not;
+the `no-release` label skips it. After adding the label, run a new pipeline (push
+or Run pipeline); as far as we know, retrying the failed job keeps the old labels.
+The check compares against the target tip when the pipeline ran, so if another
+MR merged a bump first, re-run the pipeline before merging.
 
 Merging into protected `main` stays a human/Maintainer action; branches, pushes,
 and MRs can be opened by a Developer-role account (including a bot — see the
